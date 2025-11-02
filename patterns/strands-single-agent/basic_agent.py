@@ -1,5 +1,6 @@
 import os
 from strands import Agent
+from strands_tools import calculator
 from strands.models import BedrockModel
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 # Note: Using Strands session manager for memory integration: https://strandsagents.com/latest/documentation/docs/community/session-managers/agentcore-memory/
@@ -37,6 +38,7 @@ def create_basic_agent(user_id, session_id) -> Agent:
     return Agent(
         name="BasicAgent",
         system_prompt=system_prompt,
+        tools = [calculator],
         model=bedrock_model,
         session_manager=session_manager,
         trace_attributes={

@@ -11,13 +11,13 @@ import { fetchAuthSession } from "aws-amplify/auth"
  */
 const parseStreamingChunk = (line, currentCompletion, updateCallback) => {
   /**
-   * Current Implementation for Strands agents:
-   * - Extracts 'data' field for streaming text chunks (accumulates)
-   * - Extracts 'text' from 'result' for final message (replaces)
+   * Current Implementation:
+   * - Handles raw Bedrock Converse streaming events nested in "event" key
+   * - Extracts text chunks from contentBlockDelta events (accumulates)
    *
    * TO CUSTOMIZE:
-   * Replace this entire function with your agent's parsing logic.
-   * Must handle accumulation vs replacement internally.
+   * Replace this function with your agent's parsing logic.
+   * See STREAMING.md for alternative approaches.
    */
 
   // Skip empty lines
@@ -37,9 +37,20 @@ const parseStreamingChunk = (line, currentCompletion, updateCallback) => {
     return currentCompletion;
   }
 
-  // Try to parse as JSON first
+  // Parse JSON events
   try {
     const json = JSON.parse(data);
+
+    // Handle message start - add newline for new assistant message
+    // Example: {"event": {"messageStart": {"role": "assistant"}}}
+    if (json.event?.messageStart?.role === 'assistant') {
+      if (currentCompletion) {  // Only add newline if there's previous content
+        const newCompletion = currentCompletion + '\n\n';
+        updateCallback(newCompletion);
+        return newCompletion;
+      }
+      return currentCompletion;
+    }
 
     // Extract streaming text from contentBlockDelta event
     // Example: {"event": {"contentBlockDelta": {"delta": {"text": " there"}}}}
@@ -49,36 +60,13 @@ const parseStreamingChunk = (line, currentCompletion, updateCallback) => {
       return newCompletion;
     }
 
-    // Extract final message content (replaces accumulated text)
-    // Example: {"message": {"content": [{"text": "Hello there!"}]}}
-    if (json.message?.content?.[0]?.text) {
-      const finalText = json.message.content[0].text;
-      updateCallback(finalText);
-      return finalText;
-    }
+    // Other events (contentBlockStop, messageStop, metadata) are ignored
+    // They're available for debugging or additional UI features if needed
 
     return currentCompletion;
-  } catch {
-    // Parse Python dictionary string format
-
-    // Extract 'data' field (accumulate)
-    // Example: "{'data': 'Hello', 'delta': {'text': 'Hello'}, ...}"
-    const dataMatch = data.match(/'data':\s*'([^']+)'/);
-    if (dataMatch) {
-      const newCompletion = currentCompletion + dataMatch[1];
-      updateCallback(newCompletion);
-      return newCompletion;
-    }
-
-    // Extract 'text' from 'result' (replace)
-    // Example: "{'result': AgentResult(..., 'text': 'Hello there!'), ...}"
-    const resultMatch = data.match(/'text':\s*'([^']+)'/);
-    if (resultMatch) {
-      const finalText = resultMatch[1];
-      updateCallback(finalText);
-      return finalText;
-    }
-
+  } catch (error) {
+    // If JSON parsing fails, skip this line
+    console.debug('Failed to parse streaming event:', data);
     return currentCompletion;
   }
 };
