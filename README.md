@@ -6,6 +6,24 @@ GASP is designed with security and vibe-codability as primary tenets. Best pract
 
 With GASP as a starting point and development framework, delivery scientists and engineers will accelerate their development process and deliver production quality AgentCore code following architecture and security best practices without having to learn any frontend or infrastructure (cdk) code.
 
+## GASP Baseline System
+
+GASP comes deployable out-of-the-box with a fully functioning application. This application represents a basic multi-turn chat conversation use case where the backend agent has access to some basic tools. **Do not let this deter you, even if your use case is entirely different! If your application requires AgentCore, customizing GASP to any use case is extremely straightforward through vibe coding.**
+
+### Architecture
+
+![Architecture Diagram](docs/img/GASP-architecture-20251029.png)
+
+The out-of-the-box architecture is shown above. 
+
+### Tech Stack
+
+- **Frontend**: React with TypeScript, Vite build system, Cloudscape Design System
+- **Agent Providers**: Multiple agent providers supported (Strands, LangGraph, etc.) running within AgentCore Runtime
+- **Authentication**: AWS Cognito User Pool with OAuth support for easy swapping out Cognito
+- **Infrastructure**: CDK deployment with S3 static hosting, CloudFront distribution, and AgentCore
+
+
 ## Getting Started
 
 If you are a delivery scientist or engineer who wants to use GASP to build a full stack application, follow these steps:
@@ -41,24 +59,6 @@ Once the baseline is working:
 - Customize the React frontend in `frontend/src/` as needed
 - Update infrastructure in `infra-cdk/` if required
 - Refer to development best practices in the `docs/` directory
-
-## GASP Baseline System
-
-GASP comes deployable out-of-the-box with a fully functioning application. This application represents a basic multi-turn chat conversation use case where the backend agent has access to some basic tools. **Do not let this deter you, even if your use case is entirely different! If your application requires AgentCore, customizing GASP to any use case is extremely straightforward through vibe coding.**
-
-### Architecture
-
-![Architecture Diagram](docs/img/GASP-architecture-20251029.png)
-
-The out-of-the-box architecture is shown above. 
-
-### Tech Stack
-
-- **Frontend**: React with TypeScript, Vite build system, Cloudscape Design System
-- **Agent Providers**: Multiple agent providers supported (Strands, LangGraph, etc.) running within AgentCore Runtime
-- **Authentication**: AWS Cognito User Pool with OAuth support for easy swapping out Cognito
-- **Infrastructure**: CDK deployment with S3 static hosting, CloudFront distribution, and AgentCore
-
 
 ## Deployment
 
