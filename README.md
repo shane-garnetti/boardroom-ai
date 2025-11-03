@@ -56,29 +56,9 @@ The out-of-the-box architecture is shown above.
 
 - **Frontend**: React with TypeScript, Vite build system, Cloudscape Design System
 - **Agent Providers**: Multiple agent providers supported (Strands, LangGraph, etc.) running within AgentCore Runtime
-- **Authentication**: AWS Cognito User Pool with OAuth support
+- **Authentication**: AWS Cognito User Pool with OAuth support for easy swapping out Cognito
 - **Infrastructure**: CDK deployment with S3 static hosting, CloudFront distribution, and AgentCore
-- **Styling**: Dark/Light theme support
 
-### Features
-
-#### Authentication
-- Cognito User Pool with email/username sign-in
-- OAuth support with authorization code flow
-- Secure password policy
-- Email verification
-
-#### Frontend
-- Cloudscape Design System components
-- Dark/Light theme toggle
-- Responsive design
-- SPA routing with React Router
-
-#### Infrastructure
-- S3 static website hosting
-- CloudFront CDN with HTTPS
-- Origin Access Control (OAC) for security
-- Automated deployment pipeline
 
 ## Deployment
 
@@ -112,7 +92,7 @@ genaiid-agentcore-starter-pack/
 └── README.md
 ```
 
-## 👥 Team
+## GASP Core Developer Team
 
 | ![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=kaleko) | ![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=privisaa) | ![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=razken) | ![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=zambb) |![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=dmonraj) |
 | -- | -- | -- | -- | -- |
