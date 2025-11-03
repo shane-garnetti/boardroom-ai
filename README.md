@@ -6,17 +6,41 @@ GASP is designed with security and vibe-codability as primary tenets. Best pract
 
 With GASP as a starting point and development framework, delivery scientists and engineers will accelerate their development process and deliver production quality AgentCore code following architecture and security best practices without having to learn any frontend or infrastructure (cdk) code.
 
-## GASP User Setup
+## Getting Started
 
-If you are a delivery scientist or engineer who wants to use GASP to build a full stack application, this is the section for you.
+If you are a delivery scientist or engineer who wants to use GASP to build a full stack application, follow these steps:
 
-TODO: write this section, including stuff like:
-* describe how to set up their coding assistant with the right context and/or recommended MCP servers, make sure it describes the method for all common assistants (Q CLI, Cline, Kiro at a minimum). 
-* start by forking this repo
-* recommend looking at the [samples repository](https://code.aws.dev/proserve/genaiid/reusable-assets/genaiid-agentcore-starter-pack-samples) and optionally cloning one or two if it has characteristics that align with what they are trying to do
-* deploy GASP out-of-the-box to make sure that works
-* point users towards development best practice READMEs which e.g. explain to deploy the UI locally for quick UI development
-  
+### 1. Set Up Your Development Environment
+
+**Configure Your AI Coding Assistant**
+
+GASP comes pre-configured for popular AI coding assistants:
+- **Amazon Q CLI**: Automatically uses `.amazonq/` configuration
+- **Cline**: Automatically uses `.clinerules` configuration  
+- **Kiro**: Automatically uses `.kiro/` configuration
+
+No additional setup is required - your coding assistant will automatically have access to GASP's development guidelines and best practices.
+
+### 2. Fork and Clone
+
+1. Fork this repository to your own workspace
+2. Clone your fork locally
+3. Review the [samples repository](https://code.aws.dev/proserve/genaiid/reusable-assets/genaiid-agentcore-starter-pack-samples) for examples that align with your use case
+
+### 3. Deploy Out-of-the-Box
+
+Before customizing, deploy GASP as-is to ensure everything works:
+1. Follow the [deployment guide](docs/DEPLOYMENT.md) to deploy the baseline system
+2. Verify the frontend loads and authentication works
+3. Test the basic chat functionality
+
+### 4. Customize for Your Use Case
+
+Once the baseline is working:
+- Modify the agent patterns in `patterns/` for your specific AI logic
+- Customize the React frontend in `frontend/src/` as needed
+- Update infrastructure in `infra-cdk/` if required
+- Refer to development best practices in the `docs/` directory
 
 ## GASP Baseline System
 
@@ -25,12 +49,13 @@ GASP comes deployable out-of-the-box with a fully functioning application. This 
 ### Architecture
 
 ![Architecture Diagram](docs/img/GASP-architecture-20251029.png)
+
 The out-of-the-box architecture is shown above. 
 
-### Tech stack
+### Tech Stack
 
 - **Frontend**: React with TypeScript, Vite build system, Cloudscape Design System
-- **Agent Providers**: Many agent providers are supported (Strands, langgraph, etc) (TODO) as a starting point. They all run within AgentCore Runtime.
+- **Agent Providers**: Multiple agent providers supported (Strands, LangGraph, etc.) running within AgentCore Runtime
 - **Authentication**: AWS Cognito User Pool with OAuth support
 - **Infrastructure**: CDK deployment with S3 static hosting, CloudFront distribution, and AgentCore
 - **Styling**: Dark/Light theme support
@@ -53,11 +78,11 @@ The out-of-the-box architecture is shown above.
 - S3 static website hosting
 - CloudFront CDN with HTTPS
 - Origin Access Control (OAC) for security
-- Automatic deployment pipeline
+- Automated deployment pipeline
 
 ## Deployment
 
-The GASP system is deployed with `cdk`. Please see the [deployment README](docs/DEPLOYMENT.md) for details on how to deploy GASP into an AWS account.
+The GASP system is deployed using AWS CDK. See the [deployment README](docs/DEPLOYMENT.md) for detailed instructions on how to deploy GASP into an AWS account.
 
 ## Project Structure
 
@@ -83,19 +108,15 @@ genaiid-agentcore-starter-pack/
 │       ├── basic_agent.py  # Agent implementation
 │       ├── requirements.txt # Agent dependencies
 │       └── Dockerfile      # Container configuration
-└── README.md
-│   ├── config.yaml         # Configuration
-│   └── requirements.txt
+├── docs/                   # Documentation
 └── README.md
 ```
 
-# 👥 Team
+## 👥 Team
 
 | ![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=kaleko) | ![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=privisaa) | ![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=razken) | ![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=zambb) |![badge](https://internal-cdn.amazon.com/badgephotos.amazon.com/?uid=dmonraj) |
 | -- | -- | -- | -- | -- |
 | REDACTED@amazon.com | REDACTED@amazon.com | REDACTED@amazon.com | REDACTED@amazon.com | REDACTED@amazon.com | 
-
-
 
 ## License
 
