@@ -46,28 +46,29 @@ def create_basic_agent(user_id, session_id) -> Agent:
     )
 
 @app.entrypoint
-async def agent_stream(payload):
-    """Main entrypoint for the agent using raw Strands streaming"""
+def invoke(payload):
+    """Main entrypoint for the agent"""
     user_query = payload.get("prompt")
     user_id = payload.get("userId")
     session_id = payload.get("runtimeSessionId")
     
     if not all([user_query, user_id, session_id]):
-        yield {
+        return {
             "status": "error",
             "error": "Missing required fields: prompt, userId, or runtimeSessionId"
         }
-        return
     
     try:
         agent = create_basic_agent(user_id, session_id)
-        
-        # Use the agent's stream_async method for true token-level streaming
-        async for event in agent.stream_async(user_query):
-            yield event
-            
+        response = agent(user_query)
+
+        return {
+            "status": "success",
+            "response": response.message['content'][0]['text']
+        }
+
     except Exception as e:
-        yield {
+        return {
             "status": "error",
             "error": str(e)
         }
