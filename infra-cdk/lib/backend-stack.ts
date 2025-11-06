@@ -322,6 +322,40 @@ export class BackendStack extends cdk.NestedStack {
     // Create AgentCore execution role
     const agentRole = new AgentCoreRole(this, "AgentCoreRole")
 
+    // Create memory resource with short-term memory (conversation history) as default
+    // To enable long-term strategies (summaries, preferences, facts), see docs/MEMORY_INTEGRATION.md
+    const memory = new cdk.CfnResource(this, "AgentMemory", {
+      type: "AWS::BedrockAgentCore::Memory",
+      properties: {
+        Name: cdk.Names.uniqueResourceName(this, { maxLength: 48 }),
+        EventExpiryDuration: 30,
+        Description: `Short-term memory for ${config.stack_name_base} agent`,
+        MemoryStrategies: [], // Empty array = short-term only (conversation history)
+        MemoryExecutionRoleArn: agentRole.roleArn,
+        Tags: {
+          Name: `${config.stack_name_base}_Memory`,
+          ManagedBy: "CDK",
+        },
+      },
+    })
+    const memoryId = memory.getAtt("MemoryId").toString()
+    const memoryArn = memory.getAtt("MemoryArn").toString()
+
+    // Add memory-specific permissions to agent role
+    agentRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "MemoryResourceAccess",
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "bedrock-agentcore:CreateEvent",
+          "bedrock-agentcore:GetEvent",
+          "bedrock-agentcore:ListEvents",
+          "bedrock-agentcore:RetrieveMemoryRecords", // Only needed for long-term strategies
+        ],
+        resources: [memoryArn],
+      })
+    )
+
     // Create AgentCore Runtime with JWT authorizer using CloudFormation resource
     const agentRuntime = new cdk.CfnResource(this, "AgentRuntime", {
       type: "AWS::BedrockAgentCore::Runtime",
@@ -342,6 +376,7 @@ export class BackendStack extends cdk.NestedStack {
         Description: `${pattern} agent runtime for ${config.stack_name_base}`,
         EnvironmentVariables: {
           AWS_DEFAULT_REGION: this.region,
+          MEMORY_ID: memoryId,
         },
         // Add JWT authorizer with Cognito configuration
         AuthorizerConfiguration: {
@@ -378,6 +413,12 @@ export class BackendStack extends cdk.NestedStack {
     new cdk.CfnOutput(this, "CognitoUserPoolId", {
       description: "Cognito User Pool ID - create users manually in AWS Console",
       value: this.userPool.userPoolId,
+    })
+
+    // Memory ARN output
+    new cdk.CfnOutput(this, "MemoryArn", {
+      description: "ARN of the agent memory resource",
+      value: memoryArn,
     })
 
     // Ensure the custom resource depends on the build project
