@@ -27,3 +27,4 @@ notebooks/examples/data
 **/node_modules
 **/.next
 frontend/public/aws-exports.json
+.venv
