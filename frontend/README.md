@@ -4,7 +4,7 @@ This is the React/Next.js frontend for the GenAIID AgentCore Starter Pack (GASP)
 
 For full stack deployment instructions, see the [top-level README](../README.md) and [deployment documentation](../docs/DEPLOYMENT.md).
 
-![Chat example](readme-imgs/chat-example2.gif)
+![Chat example](readme-imgs/gasp-chat-screenshot.png)
 
 ## Local Development Setup
 
