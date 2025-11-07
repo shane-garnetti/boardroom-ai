@@ -400,9 +400,12 @@ export class BackendStack extends cdk.NestedStack {
       },
     })
 
+    // Import the existing user pool for use in the CognitoUserPoolsAuthorizer constructor
+    const userPool = cognito.UserPool.fromUserPoolId(this, "ImportedUserPool", this.userPoolId)
+
     // Create Cognito authorizer
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, "FeedbackApiAuthorizer", {
-      cognitoUserPools: [this.userPool],
+      cognitoUserPools: [userPool],
       identitySource: "method.request.header.Authorization",
       authorizerName: `${config.stack_name_base}-authorizer`,
     })
