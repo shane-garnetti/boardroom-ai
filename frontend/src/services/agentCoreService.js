@@ -1,4 +1,3 @@
-import { fetchAuthSession } from "aws-amplify/auth"
 /**
  * AgentCore Service - Streaming Response Handler
  *
@@ -95,15 +94,8 @@ export const setAgentConfig = (runtimeArn, region = "us-east-1") => {
 /**
  * Invokes the AgentCore runtime with streaming support
  */
-export const invokeAgentCore = async (query, sessionId, onStreamUpdate) => {
+export const invokeAgentCore = async (query, sessionId, onStreamUpdate, accessToken, userId) => {
   try {
-    // Get Amplify auth session to extract access token
-    const session = await fetchAuthSession();
-    const accessToken = session.tokens?.accessToken?.toString();
-
-    // Extract userId from the ID token (sub is the unique user identifier)
-    const userId = session.tokens?.idToken?.payload?.sub;
-
     if (!userId) {
       throw new Error("No valid user ID found in session. Please ensure you are authenticated.")
     }

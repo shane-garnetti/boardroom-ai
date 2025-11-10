@@ -325,18 +325,21 @@ def main():
         stack_cfg = get_stack_config()
         print(f"Stack: {stack_cfg['stack_name']}\n")
         
-        # Fetch SSM params
-        print("Fetching configuration...")
-        params = get_ssm_params(
-            stack_cfg['stack_name'],
-            'cognito-user-pool-id',
-            'cognito-user-pool-client-id',
-            'runtime-arn'
-        )
+        # Get configuration from CloudFormation outputs
+        print("Fetching configuration from stack outputs...")
+        outputs = stack_cfg['outputs']
+        
+        # Validate required outputs exist
+        required_outputs = ['CognitoUserPoolId', 'CognitoClientId', 'RuntimeArn']
+        missing = [key for key in required_outputs if key not in outputs]
+        if missing:
+            print_msg(f"Missing required stack outputs: {', '.join(missing)}", "error")
+            sys.exit(1)
+        
         print_msg("Configuration fetched")
         
-        runtime_arn = params['runtime-arn']
-        region = runtime_arn.split(":")[3]
+        runtime_arn = outputs['RuntimeArn']
+        region = stack_cfg['region']
         
         # Get credentials
         print_section("Authentication")
@@ -349,8 +352,8 @@ def main():
         
         # Authenticate
         access_token, id_token, user_id = authenticate_cognito(
-            params['cognito-user-pool-id'],
-            params['cognito-user-pool-client-id'],
+            outputs['CognitoUserPoolId'],
+            outputs['CognitoClientId'],
             username,
             password
         )

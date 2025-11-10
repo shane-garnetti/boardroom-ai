@@ -8,7 +8,7 @@ Your agent sends streaming events in SSE format. This guide explains how to inte
 
 1. **Your agent sends streaming events** (SSE format)
 2. **Update `agentCoreService.js`** to parse your agent's events
-3. **Update `Home.jsx`** (optional) to display additional info like tool usage
+3. **Update `ChatInterface.tsx`** (optional) to display additional info like tool usage
 4. **UI displays the parsed text** in real-time
 
 ---
@@ -164,7 +164,7 @@ return currentCompletion;
 
 #### Step 3 (Optional): UI Component - Display Status
 
-**File:** `frontend/src/pages/Home.jsx`
+**File:** `frontend/src/components/chat/ChatInterface.tsx`
 
 Add state and pass callbacks to display tool usage and token counts:
 
@@ -172,7 +172,12 @@ Add state and pass callbacks to display tool usage and token counts:
 const [toolStatus, setToolStatus] = useState('');
 const [tokenUsage, setTokenUsage] = useState(null);
 
-// In invokeAgentCore call, pass additional callbacks
+// Get auth tokens
+const auth = useAuth()
+const accessToken = auth.user?.access_token
+const userId = auth.user?.profile?.sub
+
+// In invokeAgentCore call, pass auth tokens and additional callbacks
 const response = await invokeAgentCore(
   message,
   sessionId,
@@ -181,6 +186,8 @@ const response = await invokeAgentCore(
       { role: 'assistant', content: text }
     ]);
   },
+  accessToken,
+  userId,
   // Optional tool callback
   (tool) => setToolStatus(`Using tool: ${tool}`),
   // Optional metadata callback

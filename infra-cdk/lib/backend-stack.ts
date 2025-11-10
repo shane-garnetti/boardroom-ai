@@ -22,6 +22,7 @@ export interface BackendStackProps extends cdk.NestedStackProps {
 export class BackendStack extends cdk.NestedStack {
   public readonly userPoolId: string
   public readonly userPoolClientId: string
+  public feedbackApiUrl: string
   public runtimeArn: string
   private agentName: cdk.CfnParameter
   private networkMode: cdk.CfnParameter
@@ -29,11 +30,9 @@ export class BackendStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: BackendStackProps) {
     super(scope, id, props)
 
-    // Create Cognito User Pool first
-    this.createCognitoUserPool(props.config)
-
-    // Store Cognito config in SSM for frontend stack
-    this.createCognitoSSMParameters(props.config)
+    // Store the Cognito values
+    this.userPoolId = props.userPoolId
+    this.userPoolClientId = props.userPoolClientId
 
     // Create AgentCore Runtime resources
     this.createAgentCoreRuntime(props.config)
@@ -46,106 +45,6 @@ export class BackendStack extends cdk.NestedStack {
 
     // Create Feedback API resources (example of best-practice API Gateway + Lambda pattern)
     this.createFeedbackApi(props.config, feedbackTable)
-  }
-
-  private createCognitoUserPool(config: AppConfig): void {
-    this.userPool = new cognito.UserPool(this, "UserPool", {
-      userPoolName: `${config.stack_name_base}-user-pool`,
-      selfSignUpEnabled: false,
-      signInAliases: {
-        email: true,
-      },
-      autoVerify: {
-        email: true,
-      },
-      standardAttributes: {
-        email: {
-          required: true,
-          mutable: false,
-        },
-      },
-      passwordPolicy: {
-        minLength: 8,
-        requireLowercase: true,
-        requireUppercase: true,
-        requireDigits: true,
-        requireSymbols: true,
-      },
-      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      userInvitation: {
-        emailSubject: `Welcome to ${config.stack_name_base}!`,
-        emailBody: `<p>Hello {username},</p>
-<p>Welcome to ${config.stack_name_base}! Your username is <strong>{username}</strong> and your temporary password is: <strong>{####}</strong></p>
-<p>Please use this temporary password to log in and set your permanent password.</p>
-<p>The CloudFront URL to your application is stored as an output in the "${config.stack_name_base}" stack, and will be printed to your terminal once the deployment process completes.</p>
-<p>Thanks,</p>
-<p>AWS GENAIIC Team</p>`,
-      },
-    })
-
-    this.userPoolClient = new cognito.UserPoolClient(this, "UserPoolClient", {
-      userPool: this.userPool,
-      userPoolClientName: `${config.stack_name_base}-client`,
-      generateSecret: false,
-      authFlows: {
-        userPassword: true,
-        userSrp: true,
-      },
-      oAuth: {
-        flows: {
-          authorizationCodeGrant: true,
-        },
-        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
-        callbackUrls: ["http://localhost:5173", "https://localhost:5173"],
-      },
-      preventUserExistenceErrors: true,
-    })
-
-    this.userPoolDomain = new cognito.UserPoolDomain(this, "UserPoolDomain", {
-      userPool: this.userPool,
-      cognitoDomain: {
-        domainPrefix: `${config.stack_name_base}-${cdk.Aws.ACCOUNT_ID}-${cdk.Aws.REGION}`,
-      },
-    })
-
-    // Create admin user if email is provided in config
-    if (config.admin_user_email) {
-      const adminUser = new cognito.CfnUserPoolUser(this, "AdminUser", {
-        userPoolId: this.userPool.userPoolId,
-        username: config.admin_user_email,
-        userAttributes: [
-          {
-            name: "email",
-            value: config.admin_user_email,
-          },
-        ],
-        desiredDeliveryMediums: ["EMAIL"],
-      })
-
-      // Output admin user creation status
-      new cdk.CfnOutput(this, "AdminUserCreated", {
-        description: "Admin user created and credentials emailed",
-        value: `Admin user created: ${config.admin_user_email}`,
-      })
-    }
-  }
-
-  private createCognitoSSMParameters(config: AppConfig): void {
-    new ssm.StringParameter(this, "CognitoUserPoolIdParam", {
-      parameterName: `/${config.stack_name_base}/cognito-user-pool-id`,
-      stringValue: this.userPool.userPoolId,
-    })
-
-    new ssm.StringParameter(this, "CognitoUserPoolClientIdParam", {
-      parameterName: `/${config.stack_name_base}/cognito-user-pool-client-id`,
-      stringValue: this.userPoolClient.userPoolClientId,
-    })
-
-    new ssm.StringParameter(this, "CognitoDomainParam", {
-      parameterName: `/${config.stack_name_base}/cognito-domain`,
-      stringValue: `${this.userPoolDomain.domainName}.auth.${cdk.Aws.REGION}.amazoncognito.com`,
-    })
   }
 
   private createAgentCoreRuntime(config: AppConfig): void {
@@ -180,8 +79,8 @@ export class BackendStack extends cdk.NestedStack {
 
     // Configure JWT authorizer with Cognito
     const authorizerConfiguration = agentcore.RuntimeAuthorizerConfiguration.usingJWT(
-      `https://cognito-idp.${stack.region}.amazonaws.com/${this.userPool.userPoolId}/.well-known/openid-configuration`,
-      [this.userPoolClient.userPoolClientId]
+      `https://cognito-idp.${stack.region}.amazonaws.com/${this.userPoolId}/.well-known/openid-configuration`,
+      [this.userPoolClientId]
     )
 
     // Create AgentCore execution role
@@ -258,11 +157,6 @@ export class BackendStack extends cdk.NestedStack {
     new cdk.CfnOutput(this, "AgentRoleArn", {
       description: "ARN of the agent execution role",
       value: agentRole.roleArn,
-    })
-
-    new cdk.CfnOutput(this, "CognitoUserPoolId", {
-      description: "Cognito User Pool ID - create users manually in AWS Console",
-      value: this.userPool.userPoolId,
     })
 
     // Memory ARN output
@@ -392,6 +286,9 @@ export class BackendStack extends cdk.NestedStack {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     })
+
+    // Store the API URL for access from main stack
+    this.feedbackApiUrl = api.url
 
     // Store API URL in SSM for frontend
     new ssm.StringParameter(this, "FeedbackApiUrlParam", {
