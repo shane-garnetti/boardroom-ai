@@ -8,6 +8,7 @@ import * as logs from "aws-cdk-lib/aws-logs"
 import * as agentcore from "@aws-cdk/aws-bedrock-agentcore-alpha"
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha"
 import * as lambda from "aws-cdk-lib/aws-lambda"
+import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets"
 import { Construct } from "constructs"
 import { AppConfig } from "./utils/config-manager"
 import { AgentCoreRole } from "./utils/agentcore-role"
@@ -66,9 +67,12 @@ export class BackendStack extends cdk.NestedStack {
 
     const stack = cdk.Stack.of(this)
 
-    // Create the agent runtime artifact from local Docker context
+    // Create the agent runtime artifact from local Docker context with ARM64 platform
     const agentRuntimeArtifact = agentcore.AgentRuntimeArtifact.fromAsset(
-      path.resolve(__dirname, "..", "..", "patterns", pattern)
+      path.resolve(__dirname, "..", "..", "patterns", pattern),
+      {
+        platform: ecr_assets.Platform.LINUX_ARM64,
+      }
     )
 
     // Configure network mode
