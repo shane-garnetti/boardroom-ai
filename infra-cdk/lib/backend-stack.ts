@@ -505,6 +505,9 @@ private createAgentCoreGateway(config: AppConfig): void {
     }))
 
     // Create Custom Resource Lambda with comprehensive permissions
+    // This Lambda function manages the AgentCore Gateway lifecycle since CDK doesn't
+    // natively support AgentCore Gateway resources yet. It handles CREATE, UPDATE,
+    // and DELETE operations for gateways and their Lambda targets.
     const gatewayCustomResourceRole = new iam.Role(this, 'GatewayCustomResourceRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       description: 'Execution role for Gateway Custom Resource Lambda',
@@ -555,6 +558,9 @@ private createAgentCoreGateway(config: AppConfig): void {
     }))
 
     // Custom Resource Lambda for Gateway management
+    // This Lambda implements the CloudFormation custom resource interface to manage
+    // AgentCore Gateway lifecycle operations. It's invoked by CloudFormation during
+    // stack CREATE, UPDATE, and DELETE operations.
     const gatewayCustomResourceLambda = new lambda.Function(this, 'GatewayCustomResourceLambda', {
       runtime: lambda.Runtime.PYTHON_3_13,
       handler: 'index.handler',
@@ -566,6 +572,8 @@ private createAgentCoreGateway(config: AppConfig): void {
     })
 
     // Custom Resource Provider
+    // The Provider wraps the Lambda function to handle CloudFormation custom resource
+    // protocol, including retry logic and proper response formatting.
     const gatewayProvider = new customResources.Provider(this, 'GatewayProvider', {
       onEventHandler: gatewayCustomResourceLambda,
     })
@@ -579,6 +587,10 @@ private createAgentCoreGateway(config: AppConfig): void {
     const cognitoDiscoveryUrl = `${cognitoIssuer}/.well-known/openid-configuration`
 
     // Custom Resource to create/manage gateway
+    // This creates the actual AgentCore Gateway using our custom resource Lambda.
+    // The gateway provides a secure, scalable endpoint for agents to access tools
+    // implemented as Lambda functions. It handles JWT authentication via Cognito
+    // and routes tool calls to appropriate Lambda targets.
     const gateway = new cdk.CustomResource(this, 'AgentCoreGateway', {
       serviceToken: gatewayProvider.serviceToken,
       properties: {
@@ -596,6 +608,9 @@ private createAgentCoreGateway(config: AppConfig): void {
     })
 
     // Ensure gateway is created after all dependencies
+    // These dependencies ensure proper creation order and prevent race conditions
+    // during stack deployment. The gateway needs the Lambda function, Cognito client,
+    // and IAM role to be fully created before it can be configured.
     gateway.node.addDependency(toolLambda)
     gateway.node.addDependency(this.machineClient)
     gateway.node.addDependency(gatewayRole)
