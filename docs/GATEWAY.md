@@ -73,6 +73,80 @@ def handler(event, context):
     }
 ```
 
+#### Tool Invocation Protocol Details
+
+**Critical Implementation Notes:**
+
+The tool name is **NOT** passed in the event body. Gateway passes it via the Lambda context object:
+
+```python
+# Tool name location
+original_tool_name = context.client_context.custom['bedrockAgentCoreToolName']
+
+# Arguments are in event body
+name = event.get('name', 'World')
+```
+
+**Tool Name Format:**
+
+Gateway includes the target name as a prefix with three underscores as delimiter:
+```
+{target_name}___{tool_name}
+```
+
+Example: `sample_tool_target___sample_tool`
+
+**Complete Working Implementation:**
+
+```python
+import json
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+def lambda_handler(event, context):
+    try:
+        # Get tool name from context
+        original_tool_name = context.client_context.custom['bedrockAgentCoreToolName']
+        logger.info(f"Received tool invocation: {original_tool_name}")
+        logger.info(f"Event: {json.dumps(event)}")
+        
+        # Strip target prefix
+        delimiter = "___"
+        if delimiter in original_tool_name:
+            tool_name = original_tool_name[original_tool_name.index(delimiter) + len(delimiter):]
+        else:
+            tool_name = original_tool_name
+        
+        # Route to appropriate tool handler
+        if tool_name == "sample_tool":
+            name = event.get('name', 'World')
+            result = f"Hello, {name}! This is a sample tool from GASP."
+            return {"result": result}
+        else:
+            raise ValueError(f"Unknown tool: {tool_name}")
+            
+    except Exception as e:
+        logger.error(f"Error in lambda_handler: {str(e)}", exc_info=True)
+        raise
+```
+
+**Multiple Tools Per Lambda:**
+
+A single Lambda can handle multiple tools by routing on the extracted tool name:
+
+```python
+if tool_name == "tool_one":
+    # Handle tool one
+    pass
+elif tool_name == "tool_two":
+    # Handle tool two
+    pass
+```
+
+This is a valid production pattern used in AWS samples.
+
 ### Tool Schema Definition
 
 Tools are defined using JSON schema in the CDK stack:
@@ -93,6 +167,17 @@ Tools are defined using JSON schema in the CDK stack:
     }
 }
 ```
+
+**Supported JSON Schema Types:**
+
+When defining tool specs for Gateway, use these types:
+
+- `"integer"` - for integers (not "int")
+- `"number"` - for floats
+- `"string"` - for strings
+- `"boolean"` - for booleans
+- `"array"` - for arrays
+- `"object"` - for objects
 
 ### Authentication Flow
 
@@ -277,3 +362,4 @@ const weatherToolSchema = {
 - [Deployment Guide](DEPLOYMENT.md) - How to deploy GASP infrastructure
 - [Development Best Practices](../docs/development-best-practices.md) - General development guidelines
 - [AWS AgentCore Gateway Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore-gateway.html) - Official AWS documentation
+- [AWS Gateway Lambda Target Documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-add-target-lambda.html) - Lambda target implementation details
