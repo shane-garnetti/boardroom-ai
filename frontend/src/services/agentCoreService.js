@@ -63,7 +63,7 @@ const parseStreamingChunk = (line, currentCompletion, updateCallback) => {
     // They're available for debugging or additional UI features if needed
 
     return currentCompletion;
-  } catch (error) {
+  } catch {
     // If JSON parsing fails, skip this line
     console.debug('Failed to parse streaming event:', data);
     return currentCompletion;
@@ -167,7 +167,6 @@ export const invokeAgentCore = async (query, sessionId, onStreamUpdate, accessTo
           const lines = buffer.split('\n');
           buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
-          // eslint-disable-next-line no-restricted-syntax
           for (const line of lines) {
             if (line.trim()) {
               // Parser handles all logic (accumulation vs replacement)

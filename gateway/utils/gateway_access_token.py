@@ -4,10 +4,11 @@ This module handles OAuth2 client credentials flow to authenticate with Cognito,
 which is required for agents to access tools through the AgentCore Gateway.
 """
 
+import base64
 import os
+
 import boto3
 import requests
-import base64
 
 
 def get_ssm_parameter(parameter_name: str) -> str:
