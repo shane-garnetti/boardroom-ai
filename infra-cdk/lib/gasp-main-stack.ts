@@ -35,6 +35,7 @@ export class GaspMainStack extends cdk.Stack {
       config: props.config,
       userPoolId: this.cognitoStack.userPoolId,
       userPoolClientId: this.cognitoStack.userPoolClientId,
+      userPoolDomain: this.cognitoStack.userPoolDomain,
     })
 
     // Outputs
