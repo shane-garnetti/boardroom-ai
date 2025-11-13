@@ -205,33 +205,100 @@ const response = await invokeAgentCore(
 
 ## LangGraph/LangChain Implementation
 
-**Note:** LangGraph and LangChain use tuple-based streaming `(message_chunk, metadata)`.
+**Note:** LangGraph uses tuple-based streaming `(message_chunk, metadata)` and returns LangChain message objects with content as an array.
 
-**Backend:**
+### Backend
+
+**File:** `patterns/langgraph-single-agent/langgraph_agent.py`
+
 ```python
-# Yield raw chunks - no filtering
-async for chunk, metadata in graph.astream(inputs, stream_mode="messages"):
-    yield chunk
+# Stream with messages mode - yields raw LangChain message chunks
+async for event in graph.astream(
+    {"messages": [("user", user_query)]},
+    config=config,
+    stream_mode="messages"
+):
+    message_chunk, metadata = event
+    yield message_chunk  # Yields AIMessageChunk, ToolMessage, etc.
 ```
 
-**Frontend Parser:**
+### Event Structure
+
+LangGraph emits LangChain message objects that serialize to JSON with content as an **array of content blocks**:
+
+```javascript
+// Text streaming (AIMessageChunk)
+data: {"content": [{"type": "text", "text": "Hello", "index": 0}], "type": "AIMessageChunk", ...}
+data: {"content": [{"type": "text", "text": " there", "index": 0}], "type": "AIMessageChunk", ...}
+
+// Tool call
+data: {"content": "", "type": "AIMessageChunk", "tool_calls": [{"name": "tool_name", "args": {...}}], ...}
+
+// Tool response
+data: {"content": "Tool result", "type": "ToolMessage", "tool_call_id": "call_123", ...}
+
+// Final chunk with usage metadata
+data: {"content": "", "type": "AIMessageChunk", "chunk_position": "last", "usage_metadata": {...}}
+```
+
+### Frontend Parser
+
+**File:** `frontend/src/services/agentCoreService.js`
+
+The parser handles LangGraph's content array format and filters by message type:
+
 ```javascript
 const parseStreamingChunk = (line, currentCompletion, updateCallback) => {
   const data = line.substring(6).trim();
+  if (!data) return currentCompletion;
   
-  // Parse chunk object (auto-serialized by framework)
-  const chunk = JSON.parse(data);
-  
-  // Extract content from chunk
-  if (chunk.content) {
-    const newText = currentCompletion + chunk.content;
-    updateCallback(newText);
-    return newText;
+  try {
+    const json = JSON.parse(data);
+    
+    // Handle LangGraph AIMessageChunk format (content is array)
+    // Only process AIMessageChunk - filter out ToolMessage and other internal messages
+    if (json.type === 'AIMessageChunk' && Array.isArray(json.content)) {
+      // Handle empty content array (message start)
+      if (json.content.length === 0) {
+        if (currentCompletion) {
+          const newCompletion = currentCompletion + '\n\n';
+          updateCallback(newCompletion);
+          return newCompletion;
+        }
+        return currentCompletion;
+      }
+      
+      // Extract text from content blocks
+      const textContent = json.content
+        .filter(block => block.type === 'text' && block.text)
+        .map(block => block.text)
+        .join('');
+      
+      if (textContent) {
+        const newCompletion = currentCompletion + textContent;
+        updateCallback(newCompletion);
+        return newCompletion;
+      }
+    }
+    
+    return currentCompletion;
+  } catch (error) {
+    console.debug('Failed to parse streaming event:', data);
+    return currentCompletion;
   }
-  
-  return currentCompletion;
 };
 ```
+
+**Key Points:**
+- Filter by `type === 'AIMessageChunk'` to only process assistant responses
+- Ignore `ToolMessage` and other internal message types
+- `content` is an **array of content blocks**, not a string
+- Each block has `type`, `text`, and `index` fields
+- Filter for `type === 'text'` to extract text content
+- Join multiple text blocks if present
+
+**Why Content is an Array:**
+LangChain uses content blocks to support multimodal messages (text, images, tool calls) following the Anthropic/OpenAI message format.
 
 **References:**
 - [LangGraph Streaming](https://docs.langchain.com/oss/python/langgraph/streaming)

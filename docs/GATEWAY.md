@@ -246,6 +246,63 @@ The gateway integrates with AgentCore Runtime through:
 3. **Tool Discovery**: Runtime discovers tools via gateway's `tools/list` endpoint
 4. **Tool Execution**: Runtime calls tools via gateway's `tools/call` endpoint
 
+### Integration with Agents via MCP
+
+Agents connect to the Gateway using the Model Context Protocol (MCP). GASP provides two integration approaches:
+
+#### LangGraph with MultiServerMCPClient
+
+The `MultiServerMCPClient` from `langchain-mcp-adapters` provides automatic session management:
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.prebuilt import create_react_agent
+
+# Create MCP client with Gateway configuration
+mcp_client = MultiServerMCPClient({
+    "gateway": {
+        "transport": "streamable_http",
+        "url": gateway_url,
+        "headers": {
+            "Authorization": f"Bearer {access_token}"
+        }
+    }
+})
+
+# Load tools from Gateway
+tools = await mcp_client.get_tools()
+
+# Create agent with tools
+graph = create_react_agent(
+    model=bedrock_model,
+    tools=tools,
+    checkpointer=checkpointer
+)
+```
+
+**Example:** See `patterns/langgraph-single-agent/langgraph_agent.py` for complete implementation.
+
+#### Strands with Direct MCP Session
+
+Strands agents can use direct MCP session management for more control:
+
+```python
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+from langchain_mcp_adapters.tools import load_mcp_tools
+
+async with streamablehttp_client(
+    gateway_url,
+    headers={"Authorization": f"Bearer {access_token}"}
+) as (read, write, _):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        tools = await load_mcp_tools(session)
+        # Use tools with agent
+```
+
+**Example:** See `patterns/strands-single-agent/basic_agent.py` for complete implementation.
+
 ## Adding New Tools
 
 To add a new tool to the gateway:
