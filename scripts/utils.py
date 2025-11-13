@@ -25,24 +25,28 @@ def get_stack_config(stack_name: Optional[str] = None) -> Dict:
         stack_name: Base stack name (if None, loads from config.yaml)
     
     Returns:
-        Dictionary with stack_name, region, account, and outputs from main stack
+        Dictionary with stack_name, region, account, pattern, and outputs from main stack
     """
-    # Load stack name from config.yaml if not provided
+    # Load config.yaml
+    script_dir = Path(__file__).parent
+    config_path = script_dir.parent / "infra-cdk" / "config.yaml"
+    
+    if not config_path.exists():
+        print_msg("Configuration file not found", "error")
+        sys.exit(1)
+    
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+    
+    # Get stack name from config if not provided
     if not stack_name:
-        script_dir = Path(__file__).parent
-        config_path = script_dir.parent / "infra-cdk" / "config.yaml"
-        
-        if not config_path.exists():
-            print_msg("Configuration file not found", "error")
-            sys.exit(1)
-        
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-        
         stack_name = config.get("stack_name_base")
         if not stack_name:
             print_msg("'stack_name_base' not found in config.yaml", "error")
             sys.exit(1)
+    
+    # Get pattern from config
+    pattern = config.get("backend", {}).get("pattern", "strands-single-agent")
     
     cfn = boto3.client("cloudformation")
     
@@ -64,6 +68,7 @@ def get_stack_config(stack_name: Optional[str] = None) -> Dict:
             "stack_name": stack_name,
             "region": region,
             "account": account,
+            "pattern": pattern,
             "outputs": outputs,
         }
         

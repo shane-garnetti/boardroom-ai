@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
 
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
 """
 Interactive agent chat tester for local and remote agents
 
 Tests agent invocation with conversation continuity:
 - Remote mode (default): Chat with deployed agent via Cognito authentication
 - Local mode (--local): Chat with agent running on localhost:8080
+- Automatically detects pattern from config.yaml
 
 Usage:
     # Remote agent testing (prompts for credentials)
-    uv run scripts/test-agent-invocation.py
+    uv run scripts/test-agent.py
 
     # Local agent testing (agent must be running on localhost:8080)
-    uv run scripts/test-agent-invocation.py --local
+    uv run scripts/test-agent.py --local
+    
+    # Override pattern from config
+    uv run scripts/test-agent.py --pattern strands-single-agent
 """
 
 import sys
@@ -36,7 +43,6 @@ if str(script_dir) not in sys.path:
 # Import shared utilities
 from utils import (
     get_stack_config,
-    get_ssm_params,
     authenticate_cognito,
     generate_session_id,
     print_msg,
@@ -48,13 +54,26 @@ _agent_process: Optional[subprocess.Popen] = None
 
 
 def generate_trace_id() -> str:
-    """Generate X-Amzn-Trace-Id header value for AWS request tracing."""
+    """
+    Generate X-Amzn-Trace-Id header value for AWS request tracing.
+    
+    Returns:
+        str: Trace ID in AWS X-Ray format
+    """
     timestamp_hex = format(int(time.time()), 'x')
     return f"1-{timestamp_hex}-{generate_session_id()}"
 
 
 def check_port_available(port: int = 8080) -> bool:
-    """Check if a port is available for connection."""
+    """
+    Check if a port is available for connection.
+    
+    Args:
+        port (int): Port number to check
+        
+    Returns:
+        bool: True if port is available, False otherwise
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(1)
     try:
@@ -65,20 +84,34 @@ def check_port_available(port: int = 8080) -> bool:
         return False
 
 
-def start_local_agent(memory_id: str, region: str) -> subprocess.Popen:
+def start_local_agent(memory_id: str, region: str, stack_name: str, pattern: str) -> subprocess.Popen:
     """
     Start the local agent in a background process.
     
     Args:
-        memory_id: Memory ID for the agent
-        region: AWS region
+        memory_id (str): Memory ID for the agent
+        region (str): AWS region
+        stack_name (str): CloudFormation stack name for SSM parameter lookup
+        pattern (str): Agent pattern name (e.g., 'strands-single-agent', 'langgraph-single-agent')
     
     Returns:
-        Subprocess object for the running agent
+        subprocess.Popen: Subprocess object for the running agent
     """
     global _agent_process
     
-    agent_path = Path(__file__).parent.parent / "patterns" / "strands-single-agent" / "basic_agent.py"
+    # Map pattern to agent file
+    pattern_files = {
+        "strands-single-agent": "basic_agent.py",
+        "langgraph-single-agent": "langgraph_agent.py",
+    }
+    
+    agent_file = pattern_files.get(pattern)
+    if not agent_file:
+        print_msg(f"Unknown pattern: {pattern}", "error")
+        print(f"Available patterns: {', '.join(pattern_files.keys())}")
+        sys.exit(1)
+    
+    agent_path = Path(__file__).parent.parent / "patterns" / pattern / agent_file
     
     if not agent_path.exists():
         print_msg(f"Agent file not found: {agent_path}", "error")
@@ -93,14 +126,17 @@ def start_local_agent(memory_id: str, region: str) -> subprocess.Popen:
         sys.exit(1)
     
     print(f"Starting local agent at {agent_path}...")
+    print(f"  Pattern: {pattern}")
     print(f"  Memory ID: {memory_id}")
-    print(f"  Region: {region}\n")
+    print(f"  Region: {region}")
+    print(f"  Stack Name: {stack_name}\n")
     
     # Set up environment variables
     env = {
         **dict(subprocess.os.environ),
         "MEMORY_ID": memory_id,
         "AWS_DEFAULT_REGION": region,
+        "STACK_NAME": stack_name,
     }
     
     # Start agent process
@@ -169,11 +205,11 @@ def invoke_agent(
     Invoke agent and print raw streaming events in real-time.
     
     Args:
-        url: Agent endpoint URL
-        prompt: User prompt/query
-        session_id: Session ID for conversation continuity
-        user_id: User ID
-        headers: Optional HTTP headers
+        url (str): Agent endpoint URL
+        prompt (str): User prompt/query
+        session_id (str): Session ID for conversation continuity
+        user_id (str): User ID
+        headers (Optional[Dict[str, str]]): Optional HTTP headers
     """
     payload = {
         "prompt": prompt,
@@ -209,8 +245,8 @@ def run_chat(local_mode: bool, config: Dict[str, str]) -> None:
     Run interactive chat session.
     
     Args:
-        local_mode: Whether to use local mode
-        config: Configuration dictionary
+        local_mode (bool): Whether to use local mode
+        config (Dict[str, str]): Configuration dictionary
     """
     session_id = generate_session_id()
     
@@ -273,20 +309,29 @@ def run_chat(local_mode: bool, config: Dict[str, str]) -> None:
 
 
 def parse_arguments() -> argparse.Namespace:
-    """Parse command-line arguments."""
+    """
+    Parse command-line arguments.
+    
+    Returns:
+        argparse.Namespace: Parsed arguments
+    """
     parser = argparse.ArgumentParser(
         description="Interactive agent chat tester (local or remote)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Remote agent (prompts for credentials)
-  uv run scripts/test-agent-invocation.py
+  # Remote agent (prompts for credentials, uses pattern from config.yaml)
+  uv run scripts/test-agent.py
   
-  # Local agent on localhost:8080
-  uv run scripts/test-agent-invocation.py --local
+  # Local agent on localhost:8080 (uses pattern from config.yaml)
+  uv run scripts/test-agent.py --local
+  
+  # Override pattern
+  uv run scripts/test-agent.py --pattern strands-single-agent --local
 
 Notes:
-  - For memory testing, use: uv run scripts/test-memory.py
+  - Pattern is automatically read from infra-cdk/config.yaml
+  - Use --pattern to override the config value
   - Always runs in interactive conversation mode
         """
     )
@@ -295,6 +340,12 @@ Notes:
         "--local",
         action="store_true",
         help="Test local agent on localhost:8080 (default: remote)"
+    )
+    
+    parser.add_argument(
+        "--pattern",
+        type=str,
+        help="Override agent pattern from config (e.g., 'strands-single-agent', 'langgraph-single-agent')"
     )
     
     return parser.parse_args()
@@ -309,15 +360,23 @@ def main():
     args = parse_arguments()
     config: Dict[str, str] = {}
     
+    # Get stack configuration to determine pattern
+    stack_cfg = get_stack_config()
+    
+    # Determine pattern: CLI arg > config.yaml > default
+    pattern = args.pattern if args.pattern else stack_cfg.get('pattern', 'strands-single-agent')
+    
+    print(f"Using pattern: {pattern}\n")
+    
     # LOCAL MODE
     if args.local:
-        print_section("LOCAL MODE - Auto-starting local agent")
+        print_section("LOCAL MODE - Auto-starting agent")
         
         # Get memory configuration
-        stack_cfg = get_stack_config()
         memory_arn = stack_cfg['outputs']['MemoryArn']
         memory_id = memory_arn.split("/")[-1]
         region = stack_cfg['region']
+        stack_name = stack_cfg['stack_name']
         
         # Check if agent is already running
         if check_port_available(8080):
@@ -325,7 +384,7 @@ def main():
             print("Using existing agent instance...\n")
         else:
             # Start the agent
-            start_local_agent(memory_id, region)
+            start_local_agent(memory_id, region, stack_name, pattern)
     
     # REMOTE MODE
     else:
