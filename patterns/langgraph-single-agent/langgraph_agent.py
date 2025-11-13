@@ -58,7 +58,7 @@ async def create_gateway_mcp_client(access_token: str) -> MultiServerMCPClient:
     })
     
     print(f"[AGENT] Gateway MCP client created successfully")
-    return client
+    return gateway_client
 
 
 async def create_langgraph_agent(user_id: str, session_id: str, tools: list):
