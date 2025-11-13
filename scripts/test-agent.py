@@ -320,18 +320,19 @@ def parse_arguments() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Remote agent (prompts for credentials, uses pattern from config.yaml)
+  # Remote agent (prompts for credentials)
   uv run scripts/test-agent.py
   
   # Local agent on localhost:8080 (uses pattern from config.yaml)
   uv run scripts/test-agent.py --local
   
-  # Override pattern
-  uv run scripts/test-agent.py --pattern strands-single-agent --local
+  # Override pattern for local testing
+  uv run scripts/test-agent.py --local --pattern strands-single-agent
 
 Notes:
-  - Pattern is automatically read from infra-cdk/config.yaml
-  - Use --pattern to override the config value
+  - Remote mode: Tests deployed agent
+  - Local mode: Pattern read from infra-cdk/config.yaml to start correct agent
+  - Use --pattern to override the config value for local testing
   - Always runs in interactive conversation mode
         """
     )
@@ -360,16 +361,14 @@ def main():
     args = parse_arguments()
     config: Dict[str, str] = {}
     
-    # Get stack configuration to determine pattern
+    # Get stack configuration
     stack_cfg = get_stack_config()
-    
-    # Determine pattern: CLI arg > config.yaml > default
-    pattern = args.pattern if args.pattern else stack_cfg.get('pattern', 'strands-single-agent')
-    
-    print(f"Using pattern: {pattern}\n")
     
     # LOCAL MODE
     if args.local:
+        # Determine pattern: CLI arg > config.yaml > default (only needed for local mode)
+        pattern = args.pattern if args.pattern else stack_cfg.get('pattern', 'strands-single-agent')
+        print(f"Using pattern: {pattern}\n")
         print_section("LOCAL MODE - Auto-starting agent")
         
         # Get memory configuration
