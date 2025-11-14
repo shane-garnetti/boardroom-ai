@@ -26,8 +26,13 @@ def get_ssm_parameter(parameter_name: str) -> str:
     """
     region = os.environ.get('AWS_REGION', os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'))
     ssm = boto3.client('ssm', region_name=region)
-    response = ssm.get_parameter(Name=parameter_name)
-    return response['Parameter']['Value']
+    try:
+        response = ssm.get_parameter(Name=parameter_name)
+        return response['Parameter']['Value']
+    except ssm.exceptions.ParameterNotFound:
+        raise ValueError(f"SSM parameter not found: {parameter_name}")
+    except Exception as e:
+        raise ValueError(f"Failed to retrieve SSM parameter {parameter_name}: {e}")
 
 
 async def create_gateway_mcp_client(access_token: str) -> MultiServerMCPClient:
@@ -38,7 +43,13 @@ async def create_gateway_mcp_client(access_token: str) -> MultiServerMCPClient:
     AgentCore Gateway using MCP (Model Context Protocol). The client handles session
     lifecycle automatically and keeps the connection alive as long as the client exists.
     """
-    stack_name = os.environ['STACK_NAME']
+    stack_name = os.environ.get('STACK_NAME')
+    if not stack_name:
+        raise ValueError("STACK_NAME environment variable is required")
+    
+    # Validate stack name format to prevent injection
+    if not stack_name.replace('-', '').replace('_', '').isalnum():
+        raise ValueError("Invalid STACK_NAME format")
     
     print(f"[AGENT] Creating Gateway MCP client for stack: {stack_name}")
     
