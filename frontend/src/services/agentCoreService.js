@@ -1,97 +1,60 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
+
 /**
  * AgentCore Service - Streaming Response Handler
  *
  * Handles streaming responses from AgentCore agents using Server-Sent Events (SSE).
+ * Dynamically loads the appropriate parser based on the agent pattern in aws-exports.json.
  *
- * CUSTOMIZATION FOR OTHER AGENT TYPES:
- * The parseStreamingChunk() function below is configured for Strands agents.
- * To support other agent types (LangGraph, custom), replace this function
+ * CUSTOMIZATION GUIDE
+ * See strandsParser.js and langgraphParser.js for sample implementation of parsers for Strands and Langgraph.
+ * Modify strandsParser.js or langgraphParser.js when You need to handle additional event types (e.g., tool calls, images). 
+ * Create a new parser file to support other agent frameworks (not Strands or LangGraph), and replace the parser
  * with your agent's specific event parsing logic.
  */
-const parseStreamingChunk = (line, currentCompletion, updateCallback) => {
-  /**
-   * Current Implementation:
-   * - Handles both Strands (nested Bedrock Converse events) and LangGraph (content array format)
-   * - Strands: Extracts text from json.event.contentBlockDelta.delta.text
-   * - LangGraph: Extracts text from json.content array (content blocks format)
-   *
-   * TO CUSTOMIZE:
-   * Replace this function with your agent's parsing logic.
-   * See STREAMING.md for alternative approaches.
-   */
 
-  // Skip empty lines
-  if (!line || !line.trim()) {
-    return currentCompletion;
+import * as strandsParser from './strandsParser.js';
+import * as langgraphParser from './langgraphParser.js';
+
+// Parser selection based on agent pattern
+let activeParser = null;
+
+/**
+ * Load and select the appropriate parser based on agent pattern
+ */
+const loadParser = async () => {
+  if (activeParser) {
+    return activeParser;
   }
 
-  // Strip "data: " prefix from SSE format
-  if (!line.startsWith('data: ')) {
-    return currentCompletion;
-  }
-
-  const data = line.substring(6).trim();
-
-  // Skip empty data
-  if (!data) {
-    return currentCompletion;
-  }
-
-  // Parse JSON events
   try {
-    const json = JSON.parse(data);
+    const response = await fetch("/aws-exports.json");
+    const config = await response.json();
+    const pattern = config.agentPattern || "strands-single-agent";
 
-    // Handle Strands format: message start - add newline for new assistant message
-    // Example: {"event": {"messageStart": {"role": "assistant"}}}
-    if (json.event?.messageStart?.role === 'assistant') {
-      if (currentCompletion) {  // Only add newline if there's previous content
-        const newCompletion = currentCompletion + '\n\n';
-        updateCallback(newCompletion);
-        return newCompletion;
-      }
-      return currentCompletion;
+    // Select parser based on exact pattern match
+    if (pattern === 'strands-single-agent') {
+      activeParser = strandsParser;
+      console.log(`Using Strands parser for pattern: ${pattern}`);
+    } else if (pattern === 'langgraph-single-agent') {
+      activeParser = langgraphParser;
+      console.log(`Using LangGraph parser for pattern: ${pattern}`);
+    } else {
+      throw new Error(
+        `Unsupported agent pattern: "${pattern}". ` +
+        `Supported patterns: "strands-single-agent", "langgraph-single-agent". ` +
+        `To add support for this pattern, create a parser file and update loadParser() in agentCoreService.js.`
+      );
     }
-
-    // Handle Strands format: Extract streaming text from contentBlockDelta event
-    // Example: {"event": {"contentBlockDelta": {"delta": {"text": " there"}}}}
-    if (json.event?.contentBlockDelta?.delta?.text) {
-      const newCompletion = currentCompletion + json.event.contentBlockDelta.delta.text;
-      updateCallback(newCompletion);
-      return newCompletion;
-    }
-
-    // Handle LangGraph format: AIMessageChunk only
-    // Example: {"content": [{"type": "text", "text": "Hello", "index": 0}], "type": "AIMessageChunk"}
-    if (json.type === 'AIMessageChunk' && Array.isArray(json.content)) {
-      // Handle empty content array (message start)
-      if (json.content.length === 0) {
-        if (currentCompletion) {  // Only add newline if there's previous content
-          const newCompletion = currentCompletion + '\n\n';
-          updateCallback(newCompletion);
-          return newCompletion;
-        }
-        return currentCompletion;
-      }
-      
-      // Extract text from content blocks
-      const textContent = json.content
-        .filter(block => block.type === 'text' && block.text)
-        .map(block => block.text)
-        .join('');
-      
-      if (textContent) {
-        const newCompletion = currentCompletion + textContent;
-        updateCallback(newCompletion);
-        return newCompletion;
-      }
-    }
-
-    // All other events are ignored (tool messages, metadata, etc.)
-    return currentCompletion;
-  } catch {
-    // If JSON parsing fails, skip this line
-    console.debug('Failed to parse streaming event:', data);
-    return currentCompletion;
+    
+    return activeParser;
+  } catch (error) {
+    console.error("Failed to load agent pattern:", error);
+    // Default to Strands parser as fallback
+    console.warn("Defaulting to Strands parser");
+    activeParser = strandsParser;
+    return activeParser;
   }
 };
 
@@ -140,6 +103,9 @@ export const invokeAgentCore = async (query, sessionId, onStreamUpdate, accessTo
     if (!AGENT_CONFIG.AGENT_RUNTIME_ARN) {
       throw new Error("Agent Runtime ARN not configured")
     }
+
+    // Load the appropriate parser
+    const parser = await loadParser();
 
     // Bedrock Agent Core endpoint
     const endpoint = `https://bedrock-agentcore.${AGENT_CONFIG.AWS_REGION}.amazonaws.com`
@@ -202,8 +168,8 @@ export const invokeAgentCore = async (query, sessionId, onStreamUpdate, accessTo
 
           for (const line of lines) {
             if (line.trim()) {
-              // Parser handles all logic (accumulation vs replacement)
-              completion = parseStreamingChunk(line, completion, onStreamUpdate);
+              // Use the dynamically loaded parser
+              completion = parser.parseStreamingChunk(line, completion, onStreamUpdate);
             }
           }
         }
