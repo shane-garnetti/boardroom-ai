@@ -128,11 +128,7 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-if ! command -v uv &> /dev/null; then
-    log_error "uv is not installed"
-    log_info "Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
-    exit 1
-fi
+
 
 if ! command -v aws &> /dev/null; then
     log_error "AWS CLI is not installed"
@@ -158,7 +154,7 @@ AWS_EXPORTS_FILE="public/aws-exports.json"
 GENERATOR_SCRIPT="$SCRIPT_DIR/post-deploy.py"
 
 # Run from project root where pyproject.toml is located
-if (cd "$PROJECT_ROOT" && uv run "$GENERATOR_SCRIPT" "$STACK_NAME"); then
+if python3 "$GENERATOR_SCRIPT" "$STACK_NAME"; then
     log_success "Generated aws-exports.json"
 else
     log_error "Failed to generate aws-exports.json"

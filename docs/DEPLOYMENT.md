@@ -19,6 +19,44 @@ Before deploying, ensure you have:
   - Bedrock AgentCore resources
   - IAM roles and policies
 
+## Python Environment Setup
+
+The deployment scripts require Python dependencies to be installed. Choose one of the following approaches:
+
+### Option 1: Using uv (Recommended)
+
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv pip install -e ".[dev]"
+```
+
+### Option 2: Using conda
+
+```bash
+# Create and activate conda environment
+conda create -n gasp python=3.12
+conda activate gasp
+
+# Install dependencies
+pip install -e ".[dev]"
+```
+
+### Option 3: Using venv
+
+```bash
+# Create and activate virtual environment
+python -m venv gasp-env
+source gasp-env/bin/activate  # On Windows: gasp-env\Scripts\activate
+
+# Install dependencies
+pip install -e ".[dev]"
+```
+
+**Note**: These dependencies are required for the deployment scripts, particularly `deploy-frontend.sh` which uses Python scripts that depend on PyYAML and other packages.
+
 ## Configuration
 
 ### 1. Update Configuration File
