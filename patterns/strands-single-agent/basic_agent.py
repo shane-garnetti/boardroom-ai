@@ -10,6 +10,7 @@ from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemory
 import traceback
 
 from gateway.utils.gateway_access_token import get_gateway_access_token
+from code_interpreter_tools import CodeInterpreterTools
 
 app = BedrockAgentCoreApp()
 
@@ -73,7 +74,7 @@ def create_basic_agent(user_id: str, session_id: str) -> Agent:
     connection, and configures the agent with access to all tools available through
     the Gateway. If Gateway connection fails, it falls back to an agent without tools.
     """
-    system_prompt = """You are a helpful assistant with access to tools via the Gateway.
+    system_prompt = """You are a helpful assistant with access to tools via the Gateway and Code Interpreter.
     When asked about your tools, list them and explain what they do."""
 
     bedrock_model = BedrockModel(
@@ -97,6 +98,10 @@ def create_basic_agent(user_id: str, session_id: str) -> Agent:
         region_name=os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
     )
 
+    # Initialize Code Interpreter tools
+    region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+    code_tools = CodeInterpreterTools(region)
+
     try:
         print("[AGENT] Starting agent creation with Gateway tools...")
 
@@ -110,11 +115,11 @@ def create_basic_agent(user_id: str, session_id: str) -> Agent:
         gateway_client = create_gateway_mcp_client(access_token)
         print("[AGENT] Gateway MCP client created successfully")
 
-        print("[AGENT] Step 2: Creating Agent with Gateway tools...")
+        print("[AGENT] Step 3: Creating Agent with Gateway tools and Code Interpreter...")
         agent = Agent(
             name="BasicAgent",
             system_prompt=system_prompt,
-            tools=[gateway_client],
+            tools=[gateway_client, code_tools.execute_python],
             model=bedrock_model,
             session_manager=session_manager,
             trace_attributes={
@@ -122,7 +127,7 @@ def create_basic_agent(user_id: str, session_id: str) -> Agent:
                 "session.id": session_id,
             }
         )
-        print("[AGENT] Agent created successfully with Gateway tools")
+        print("[AGENT] Agent created successfully with Gateway tools and Code Interpreter")
         return agent
 
     except Exception as e:
