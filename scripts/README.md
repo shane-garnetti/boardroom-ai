@@ -114,9 +114,9 @@ uv pip install -r requirements.txt
 
 ## Available Scripts
 
-### test-agent-invocation.py
+### test-agent.py
 
-Interactive chat interface for testing agent invocations with conversation continuity.
+Interactive chat interface for testing agent invocations with conversation continuity. Automatically detects the agent pattern from `infra-cdk/config.yaml`.
 
 **Modes:**
 
@@ -126,12 +126,20 @@ Interactive chat interface for testing agent invocations with conversation conti
 **Usage:**
 
 ```bash
-# Remote mode (prompts for credentials)
-uv run python scripts/test-agent-invocation.py
+# Remote mode (prompts for credentials, tests deployed agent)
+uv run scripts/test-agent.py
 
-# Local mode (auto-starts agent if not running)
-uv run python scripts/test-agent-invocation.py --local
+# Local mode (auto-starts agent if not running, uses pattern from config.yaml)
+uv run scripts/test-agent.py --local
+
+# Override pattern for local testing
+uv run scripts/test-agent.py --local --pattern strands-single-agent
 ```
+
+**Supported Patterns:**
+
+- `strands-single-agent` - Basic Strands agent
+- `langgraph-single-agent` - LangGraph agent with streaming
 
 **Prerequisites:**
 

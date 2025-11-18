@@ -128,6 +128,8 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+
+
 if ! command -v aws &> /dev/null; then
     log_error "AWS CLI is not installed"
     exit 1
@@ -151,6 +153,7 @@ log_info "Generating aws-exports.json from CDK stack outputs..."
 AWS_EXPORTS_FILE="public/aws-exports.json"
 GENERATOR_SCRIPT="$SCRIPT_DIR/post-deploy.py"
 
+# Run from project root where pyproject.toml is located
 if python3 "$GENERATOR_SCRIPT" "$STACK_NAME"; then
     log_success "Generated aws-exports.json"
 else

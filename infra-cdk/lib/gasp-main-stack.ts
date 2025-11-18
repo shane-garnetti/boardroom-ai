@@ -70,6 +70,12 @@ export class GaspMainStack extends cdk.Stack {
       exportName: `${props.config.stack_name_base}-RuntimeArn`,
     })
 
+    new cdk.CfnOutput(this, "MemoryArn", {
+      value: this.backendStack.memoryArn,
+      description: "AgentCore Memory ARN",
+      exportName: `${props.config.stack_name_base}-MemoryArn`,
+    })
+
     new cdk.CfnOutput(this, "FeedbackApiUrl", {
       value: this.backendStack.feedbackApiUrl,
       description: "Feedback API Gateway URL",

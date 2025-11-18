@@ -233,21 +233,47 @@ For complete LangGraph integration documentation, see the [official LangGraph Me
 **Install:**
 
 ```bash
-pip install langgraph-checkpoint-aws
+pip install langgraph-checkpoint-aws langchain-mcp-adapters
 ```
 
-**Short-term memory (Checkpointer):**
+**Complete Integration with Gateway Tools:**
 
 ```python
-from langchain.chat_models import init_chat_model
+from langchain_aws import ChatBedrock
 from langgraph.prebuilt import create_react_agent
 from langgraph_checkpoint_aws import AgentCoreMemorySaver
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
-checkpointer = AgentCoreMemorySaver(MEMORY_ID, region_name="us-west-2")
-llm = init_chat_model(MODEL_ID, model_provider="bedrock_converse", region_name="us-west-2")
+# Configure memory checkpointer
+checkpointer = AgentCoreMemorySaver(
+    memory_id=memory_id,
+    region_name="us-east-1"
+)
 
+# Create Bedrock model
+bedrock_model = ChatBedrock(
+    model_id="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    temperature=0.1,
+    streaming=True
+)
+
+# Create MCP client for Gateway tools
+mcp_client = MultiServerMCPClient({
+    "gateway": {
+        "transport": "streamable_http",
+        "url": gateway_url,
+        "headers": {
+            "Authorization": f"Bearer {access_token}"
+        }
+    }
+})
+
+# Load tools from Gateway
+tools = await mcp_client.get_tools()
+
+# Create agent with memory and tools
 graph = create_react_agent(
-    model=llm,
+    model=bedrock_model,
     tools=tools,
     checkpointer=checkpointer
 )
@@ -255,13 +281,22 @@ graph = create_react_agent(
 # Invoke with actor and session
 config = {
     "configurable": {
-        "thread_id": "session-1",
-        "actor_id": "user-123"
+        "thread_id": session_id,
+        "actor_id": user_id
     }
 }
 
-response = graph.invoke({"messages": [("human", "Hello")]}, config=config)
+# Stream responses
+async for event in graph.astream(
+    {"messages": [("user", "Hello")]},
+    config=config,
+    stream_mode="messages"
+):
+    message_chunk, metadata = event
+    # Process streaming chunks
 ```
+
+**💡 Example:** See this approach implemented in `patterns/langgraph-single-agent/langgraph_agent.py`
 
 **Long-term memory (Store):**
 

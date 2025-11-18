@@ -42,9 +42,54 @@ system_prompt = """You are a helpful assistant. Answer questions clearly and con
 
 **After making changes**: See [Deployment Guide](DEPLOYMENT.md) for redeployment instructions.
 
-### LangGraph Pattern (Coming Soon)
+### LangGraph Single Agent Pattern
 
-**Location**: `patterns/langgraph-single-agent/` (planned)
+**Location**: `patterns/langgraph-single-agent/`
+
+A conversational agent using LangGraph with AgentCore Memory and Gateway integration.
+
+**What This Agent Does**:
+
+- Multi-turn conversational chat with LangGraph
+- Maintains conversation history with AgentCore Memory checkpointer
+- Streams responses token-by-token for better UX
+- Integrates with AgentCore Gateway for tool execution via MCP
+- Uses MultiServerMCPClient for automatic session management
+
+**Key Configuration Files**:
+- **Agent Logic**: `patterns/langgraph-single-agent/langgraph_agent.py` - Main agent implementation with memory, Gateway tools, and streaming
+- **Python Dependencies**: `patterns/langgraph-single-agent/requirements.txt` - Required Python packages (LangGraph, langchain-aws, etc.)
+- **Container Config**: `patterns/langgraph-single-agent/Dockerfile` - Docker container definition for AgentCore Runtime deployment
+- **Infrastructure**: `infra-cdk/lib/backend-stack.ts` - CDK configuration for memory resource and runtime deployment
+
+**Model Configuration** (`patterns/langgraph-single-agent/langgraph_agent.py`):
+
+```python
+bedrock_model = ChatBedrock(
+    model_id="us.anthropic.claude-sonnet-4-5-20250929-v1:0",  # ← Change model here
+    temperature=0.1,
+    streaming=True
+)
+```
+
+**Gateway Integration** (`patterns/langgraph-single-agent/langgraph_agent.py`):
+
+```python
+# Create MCP client for Gateway
+mcp_client = await create_gateway_mcp_client(access_token)
+
+# Load tools from Gateway
+tools = await mcp_client.get_tools()
+
+# Create agent with tools
+graph = create_react_agent(
+    model=bedrock_model,
+    tools=tools,
+    checkpointer=checkpointer
+)
+```
+
+**After making changes**: See [Deployment Guide](DEPLOYMENT.md) for redeployment instructions.
 
 ---
 

@@ -29,6 +29,7 @@ export class BackendStack extends cdk.NestedStack {
   public readonly userPoolDomain: cognito.UserPoolDomain
   public feedbackApiUrl: string
   public runtimeArn: string
+  public memoryArn: string
   private agentName: cdk.CfnParameter
   private networkMode: cdk.CfnParameter
   private userPool: cognito.IUserPool
@@ -154,6 +155,9 @@ export class BackendStack extends cdk.NestedStack {
     })
     const memoryId = memory.getAtt("MemoryId").toString()
     const memoryArn = memory.getAtt("MemoryArn").toString()
+
+    // Store the memory ARN for access from main stack
+    this.memoryArn = memoryArn
 
     // Add memory-specific permissions to agent role
     agentRole.addToPolicy(

@@ -1,90 +1,20 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
+
 /**
  * AgentCore Service - Streaming Response Handler
  *
  * Handles streaming responses from AgentCore agents using Server-Sent Events (SSE).
  *
  * CUSTOMIZATION FOR OTHER AGENT TYPES:
- * The parseStreamingChunk() function below is configured for Strands agents.
- * To support other agent types (LangGraph, custom), replace this function
- * with your agent's specific event parsing logic.
+ * This service dynamically loads the appropriate parser based on the agent pattern.
+ * The parser processes each streaming event. See strandsParser.js and langgraphParser.js for examples.
+ * To support other agent frameworks, create a new parser file and update config.yaml.
  */
-const parseStreamingChunk = (line, currentCompletion, updateCallback) => {
-  /**
-   * Current Implementation:
-   * - Handles raw Bedrock Converse streaming events nested in "event" key
-   * - Extracts text chunks from contentBlockDelta events (accumulates)
-   *
-   * TO CUSTOMIZE:
-   * Replace this function with your agent's parsing logic.
-   * See STREAMING.md for alternative approaches.
-   */
 
-  // Skip empty lines
-  if (!line || !line.trim()) {
-    return currentCompletion;
-  }
-
-  // Strip "data: " prefix from SSE format
-  if (!line.startsWith('data: ')) {
-    return currentCompletion;
-  }
-
-  const data = line.substring(6).trim();
-
-  // Skip empty data
-  if (!data) {
-    return currentCompletion;
-  }
-
-  // Parse JSON events
-  try {
-    const json = JSON.parse(data);
-
-    // Handle message start - add newline for new assistant message
-    // Example: {"event": {"messageStart": {"role": "assistant"}}}
-    if (json.event?.messageStart?.role === 'assistant') {
-      if (currentCompletion) {  // Only add newline if there's previous content
-        const newCompletion = currentCompletion + '\n\n';
-        updateCallback(newCompletion);
-        return newCompletion;
-      }
-      return currentCompletion;
-    }
-
-    // Extract streaming text from contentBlockDelta event
-    // Example: {"event": {"contentBlockDelta": {"delta": {"text": " there"}}}}
-    if (json.event?.contentBlockDelta?.delta?.text) {
-      const newCompletion = currentCompletion + json.event.contentBlockDelta.delta.text;
-      updateCallback(newCompletion);
-      return newCompletion;
-    }
-
-    // Other events (contentBlockStop, messageStop, metadata) are ignored
-    // They're available for debugging or additional UI features if needed
-
-    return currentCompletion;
-  } catch {
-    // If JSON parsing fails, skip this line
-    console.debug('Failed to parse streaming event:', data);
-    return currentCompletion;
-  }
-};
-
-// Generate a UUID-like string that meets AgentCore requirements (min 33 chars)
+// Generate a UUID
 const generateId = () => {
-  const timestamp = Date.now().toString(36)
-  
-  // Use cryptographically secure random number generation
-  const getSecureRandom = () => {
-    const array = new Uint32Array(1)
-    crypto.getRandomValues(array)
-    return array[0].toString(36)
-  }
-  
-  const random1 = getSecureRandom()
-  const random2 = getSecureRandom()
-  const random3 = getSecureRandom()
-  return `${timestamp}-${random1}-${random2}-${random3}`
+  return crypto.randomUUID();
 }
 
 // Configuration - will be populated from aws-exports.json
@@ -93,10 +23,18 @@ const AGENT_CONFIG = {
   AWS_REGION: "us-east-1",
 }
 
+let currentParser = null;
+
 // Set configuration from environment or aws-exports
-export const setAgentConfig = (runtimeArn, region = "us-east-1") => {
+export const setAgentConfig = async (runtimeArn, region = "us-east-1", agentPattern = "strands-single-agent") => {
   AGENT_CONFIG.AGENT_RUNTIME_ARN = runtimeArn
   AGENT_CONFIG.AWS_REGION = region
+  
+  if (agentPattern === 'langgraph-single-agent') {
+    currentParser = await import('./langgraphParser.js');
+  } else {
+    currentParser = await import('./strandsParser.js');
+  }
 }
 
 /**
@@ -177,8 +115,7 @@ export const invokeAgentCore = async (query, sessionId, onStreamUpdate, accessTo
 
           for (const line of lines) {
             if (line.trim()) {
-              // Parser handles all logic (accumulation vs replacement)
-              completion = parseStreamingChunk(line, completion, onStreamUpdate);
+              completion = currentParser.parseStreamingChunk(line, completion, onStreamUpdate);
             }
           }
         }
