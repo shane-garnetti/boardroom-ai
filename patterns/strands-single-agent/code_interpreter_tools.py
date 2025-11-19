@@ -2,6 +2,7 @@
 
 import json
 import logging
+
 import boto3
 from strands import tool
 
@@ -27,7 +28,7 @@ class CodeInterpreterTools:
         """Get or create code interpreter client."""
         if self._code_client is None:
             from bedrock_agentcore.tools.code_interpreter_client import CodeInterpreter
-            
+
             self._code_client = CodeInterpreter(self.region)
             self._code_client.start()
             logger.info(f"Started code interpreter in {self.region}")
@@ -55,11 +56,9 @@ class CodeInterpreterTools:
             code = f"# {description}\n{code}"
 
         client = self._get_code_interpreter_client()
-        response = client.invoke("executeCode", {
-            "code": code,
-            "language": "python",
-            "clearContext": False
-        })
+        response = client.invoke(
+            "executeCode", {"code": code, "language": "python", "clearContext": False}
+        )
 
         for event in response["stream"]:
             return json.dumps(event["result"], indent=2)
