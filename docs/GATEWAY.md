@@ -386,6 +386,34 @@ const weatherToolSchema = {
 - Check gateway target configuration
 - Ensure Lambda function is deployed and accessible
 
+**Gateway returns "An internal error occurred"**
+
+- Enable debugging to see detailed error messages by updating the gateway to set `exceptionLevel: 'DEBUG'` in the CDK construct or via AWS CLI.
+
+```bash
+# Enable debugging on gateway
+aws bedrock-agentcore-control update-gateway \
+  --gateway-identifier <GATEWAY_ID> \
+  --name <GATEWAY_NAME> \
+  --role-arn <ROLE_ARN> \
+  --protocol-type MCP \
+  --authorizer-type CUSTOM_JWT \
+  --authorizer-configuration <AUTH_CONFIG> \
+  --exception-level DEBUG
+```
+
+Or update the gateway construct in CDK:
+
+```typescript
+const gateway = new bedrockagentcore.CfnGateway(this, "AgentCoreGateway", {
+  name: `${config.stack_name_base}-gateway`,
+  roleArn: gatewayRole.roleArn,
+  protocolType: "MCP",
+  exceptionLevel: "DEBUG", // Add this line for detailed error messages
+  // ... rest of configuration
+})
+```
+
 ### Debug Steps
 
 1. **Check SSM Parameters**: Verify all gateway configuration parameters exist
