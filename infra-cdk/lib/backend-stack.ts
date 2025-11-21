@@ -390,6 +390,9 @@ export class BackendStack extends cdk.NestedStack {
         cacheClusterEnabled: true,
         cacheClusterSize: "0.5",
         cacheTtl: cdk.Duration.minutes(5),
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: true,
+        metricsEnabled: true,
         accessLogDestination: new apigateway.LogGroupLogDestination(
           new logs.LogGroup(this, "FeedbackApiAccessLogGroup", {
             logGroupName: `/aws/apigateway/${config.stack_name_base}-api-access`,
@@ -400,6 +403,14 @@ export class BackendStack extends cdk.NestedStack {
         accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
         tracingEnabled: true,
       },
+    })
+
+    // Add request validator for API security
+    const requestValidator = new apigateway.RequestValidator(this, "FeedbackApiRequestValidator", {
+      restApi: api,
+      requestValidatorName: `${config.stack_name_base}-request-validator`,
+      validateRequestBody: true,
+      validateRequestParameters: true,
     })
 
     // Create Cognito authorizer
@@ -414,6 +425,7 @@ export class BackendStack extends cdk.NestedStack {
     feedbackResource.addMethod("POST", new apigateway.LambdaIntegration(feedbackLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
+      requestValidator: requestValidator,
     })
 
     // Store the API URL for access from main stack
