@@ -2,6 +2,7 @@ import * as cdk from "aws-cdk-lib"
 import * as cognito from "aws-cdk-lib/aws-cognito"
 import * as iam from "aws-cdk-lib/aws-iam"
 import * as ssm from "aws-cdk-lib/aws-ssm"
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager"
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb"
 import * as apigateway from "aws-cdk-lib/aws-apigateway"
 import * as logs from "aws-cdk-lib/aws-logs"
@@ -261,9 +262,9 @@ export class BackendStack extends cdk.NestedStack {
       description: "Machine Client ID for M2M authentication",
     })
 
-    new ssm.StringParameter(this, "MachineClientSecretParam", {
-      parameterName: `/${config.stack_name_base}/machine_client_secret`,
-      stringValue: this.machineClient.userPoolClientSecret.unsafeUnwrap(),
+    new secretsmanager.Secret(this, "MachineClientSecret", {
+      secretName: `/${config.stack_name_base}/machine_client_secret`,
+      secretStringValue: cdk.SecretValue.unsafePlainText(this.machineClient.userPoolClientSecret.unsafeUnwrap()),
       description: "Machine Client Secret for M2M authentication",
     })
 
