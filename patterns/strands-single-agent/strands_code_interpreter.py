@@ -21,15 +21,14 @@ class StrandsCodeInterpreterTools:
         self.core_tools.cleanup()
 
     @tool
-    def execute_python(self, code: str, description: str = "") -> str:
+    def execute_python(self, code: str) -> str:
         """
         Execute Python code in secure sandbox.
 
         Args:
             code: Python code to execute
-            description: Optional description of what the code does
 
         Returns:
             JSON string with execution result
         """
-        return self.core_tools.execute_python(code, description)
+        return self.core_tools.execute_python(code)

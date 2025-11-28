@@ -35,20 +35,16 @@ class CodeInterpreterTools:
             self._code_client.stop()
             self._code_client = None
 
-    def execute_python(self, code: str, description: str = "") -> str:
+    def execute_python(self, code: str) -> str:
         """
         Execute Python code in secure sandbox.
 
         Args:
             code: Python code to execute
-            description: Optional description
 
         Returns:
             JSON string with execution result
         """
-        if description:
-            code = f"# {description}\n{code}"
-
         client = self._get_code_interpreter_client()
         try:
             response = client.invoke(
