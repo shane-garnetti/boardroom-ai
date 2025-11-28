@@ -30,14 +30,19 @@ class CodeInterpreterTools:
         return self._code_client
 
     def cleanup(self):
-        """Clean up code interpreter session."""
+        """
+        Clean up code interpreter session.
+        
+        Note: AgentCore automatically cleans up inactive sessions after timeout,
+        so manual cleanup is optional but recommended for immediate resource release.
+        """
         if self._code_client:
             self._code_client.stop()
             self._code_client = None
 
-    def execute_python(self, code: str) -> str:
+    def execute_python_securely(self, code: str) -> str:
         """
-        Execute Python code in secure sandbox.
+        Execute Python code in a secure AgentCore CodeInterpreter sandbox.
 
         Args:
             code: Python code to execute

@@ -125,7 +125,7 @@ def create_basic_agent(user_id: str, session_id: str) -> Agent:
         agent = Agent(
             name="BasicAgent",
             system_prompt=system_prompt,
-            tools=[gateway_client, code_tools.execute_python],
+            tools=[gateway_client, code_tools.execute_python_securely],
             model=bedrock_model,
             session_manager=session_manager,
             trace_attributes={

@@ -17,13 +17,18 @@ class StrandsCodeInterpreterTools:
         self.core_tools = CodeInterpreterTools(region)
 
     def cleanup(self):
-        """Clean up code interpreter session."""
+        """
+        Clean up code interpreter session.
+        
+        Note: AgentCore automatically cleans up inactive sessions after timeout,
+        so manual cleanup is optional but recommended for immediate resource release.
+        """
         self.core_tools.cleanup()
 
     @tool
-    def execute_python(self, code: str) -> str:
+    def execute_python_securely(self, code: str) -> str:
         """
-        Execute Python code in secure sandbox.
+        Execute Python code in a secure AgentCore CodeInterpreter sandbox.
 
         Args:
             code: Python code to execute
@@ -31,4 +36,4 @@ class StrandsCodeInterpreterTools:
         Returns:
             JSON string with execution result
         """
-        return self.core_tools.execute_python(code)
+        return self.core_tools.execute_python_securely(code)
