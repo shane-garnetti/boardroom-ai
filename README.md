@@ -47,7 +47,7 @@ What comes next? That's up to you, the developer. With your requirements in mind
 
 ## Architecture
 
-![Architecture Diagram](docs/architecture-diagram/GASP-architecture-20251113.png)
+![Architecture Diagram](docs/architecture-diagram/GASP-architecture-20251201.png)
 
 The out-of-the-box architecture is shown above. Note that Amazon Cognito is used in four places:
 1. User-based login to the frontend web application on CloudFront
