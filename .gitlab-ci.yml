@@ -42,9 +42,9 @@ pages:
   stage: deploy  # Runs after tests pass
   image: public.ecr.aws/docker/library/python:3.13-bookworm  # Python required for mkdocs
   before_script:
-    - pip install -r docs/requirements.txt  # Install mkdocs, material theme, and plugins
+    - pip install -r .mkdocs/requirements.txt  # Install mkdocs, material theme, and plugins
   script:
-    - cd docs
+    - cd .mkdocs
     - mkdocs build --site-dir ../public  # Build to public/ (required by GitLab Pages)
   artifacts:
     paths:
