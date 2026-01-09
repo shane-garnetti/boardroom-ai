@@ -82,9 +82,24 @@ export class CognitoStack extends cdk.NestedStack {
     this.userPoolDomain = new cognito.UserPoolDomain(this, "UserPoolDomain", {
       userPool: userPool,
       cognitoDomain: {
-        domainPrefix: `${config.stack_name_base.toLowerCase()}-${cdk.Aws.ACCOUNT_ID}-${cdk.Aws.REGION}`,
+        domainPrefix: `${config.stack_name_base.toLowerCase()}-${cdk.Aws.ACCOUNT_ID}-${
+          cdk.Aws.REGION
+        }`,
       },
+      // Enable the newer managed login UI (v2) with the branding designer. Comment or remove this
+      // if you'd like to use the old classic UI.
+      managedLoginVersion: cognito.ManagedLoginVersion.NEWER_MANAGED_LOGIN,
     })
+
+    // Create managed login branding with Cognito's default styles
+    // This is required for the v2 managed login to display properly
+    const managedLoginBranding = new cognito.CfnManagedLoginBranding(this, "ManagedLoginBranding", {
+      userPoolId: userPool.userPoolId,
+      clientId: userPoolClient.userPoolClientId,
+      useCognitoProvidedValues: true,
+    })
+
+    managedLoginBranding.node.addDependency(this.userPoolDomain)
 
     // Store the IDs for export
     this.userPoolId = userPool.userPoolId
