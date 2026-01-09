@@ -79,4 +79,4 @@ clean:
 #
 # Usage: make gitlab-pages
 gitlab-pages:
-	mkdocs build --site-dir public
+	mkdocs build --site-dir ../public

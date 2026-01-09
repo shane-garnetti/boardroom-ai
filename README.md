@@ -40,14 +40,14 @@ cd ..
 python scripts/deploy-frontend.py
 ```
 
-See the [deployment guide](docs/docs/DEPLOYMENT.md) for detailed instructions on how to deploy FAST into an AWS account.
+See the [deployment guide](docs/DEPLOYMENT.md) for detailed instructions on how to deploy FAST into an AWS account.
 
 What comes next? That's up to you, the developer. With your requirements in mind, open up your coding assistant, describe what you'd like to do, and begin. The steering docs in this repository help guide coding assistants with best practices, and encourage them to always refer to the documentation built-in to the repository to make sure you end up building something great.
 
 
 ## Architecture
 
-![Architecture Diagram](docs/docs/architecture-diagram/FAST-architecture-20251201.png)
+![Architecture Diagram](docs/architecture-diagram/FAST-architecture-20251201.png)
 
 The out-of-the-box architecture is shown above. Note that Amazon Cognito is used in four places:
 1. User-based login to the frontend web application on CloudFront

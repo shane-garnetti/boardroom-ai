@@ -36,7 +36,8 @@ markdown_extensions:
 
 plugins:
    - search
-   - awesome-nav
+   - awesome-nav:
+      filename: ".nav.yml"
 
 extra_javascript:
   # Workaround for site_url breaking mermaid rendering; see the following for more info:
