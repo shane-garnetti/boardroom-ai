@@ -12,7 +12,7 @@ This directory contains the AWS CDK infrastructure code for deploying the Fullst
 
 The file `minimal-deploy-policy.json` contains the minimum IAM permissions required to deploy this CDK application. This policy includes 25 actions across 6 statements covering CloudFormation, S3, SSM, ECR, IAM PassRole, and Amplify.
 
-**Important:** This policy assumes CDK bootstrap has already been run in the target account. It does not include permissions for `cdk bootstrap`. To bootstrap a fresh account, you'll need additional IAM permissions (CreateRole, AttachRolePolicy, PutRolePolicy, etc.) - see the [CDK Bootstrap Permissions GitHub issue](https://github.com/aws/aws-cdk/issues/21937) for details.
+**Important:** This policy assumes CDK bootstrap has already been run in the target account. It does not include permissions for `cdk bootstrap`. To bootstrap a fresh account, you'll need additional IAM permissions (CreateRole, AttachRolePolicy, PutRolePolicy, etc.) - refer to the AWS CDK Bootstrap documentation for details.
 
 ## Getting Started
 
