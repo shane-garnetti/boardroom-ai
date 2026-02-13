@@ -19,3 +19,4 @@ jobs:
               uses: jgehrcke/github-repo-stats@v1.5.2
               with:
                   ghtoken: ${{ secrets.GHRS_GITHUB_API_TOKEN }}
+                  ghpagesprefix: "https://awslabs.github.io/fullstack-solution-template-for-agentcore"
