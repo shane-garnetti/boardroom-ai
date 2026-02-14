@@ -33,6 +33,7 @@ EXPOSE 8080
 # Copy agent code files
 COPY patterns/strands-single-agent/basic_agent.py .
 COPY patterns/strands-single-agent/strands_code_interpreter.py .
+COPY patterns/utils/ utils/
 
 # Healthcheck using Python (no extra dependencies needed)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

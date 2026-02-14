@@ -30,10 +30,8 @@ export class AgentCoreClient {
     query: string,
     sessionId: string,
     accessToken: string,
-    userId: string,
     onEvent: StreamCallback
   ): Promise<void> {
-    if (!userId) throw new Error("No valid user ID found.");
     if (!accessToken) throw new Error("No valid access token found.");
     if (!this.runtimeArn) throw new Error("Agent Runtime ARN not configured.");
 
@@ -43,6 +41,9 @@ export class AgentCoreClient {
 
     const traceId = `1-${Math.floor(Date.now() / 1000).toString(16)}-${crypto.randomUUID()}`;
 
+    // User identity is extracted server-side from the validated JWT token
+    // (Authorization header), not sent in the payload body. This prevents
+    // impersonation via prompt injection.
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -54,7 +55,6 @@ export class AgentCoreClient {
       body: JSON.stringify({
         prompt: query,
         runtimeSessionId: sessionId,
-        userId,
       }),
     });
 

@@ -8,7 +8,7 @@ import { Message, MessageSegment, ToolCall } from "./types"
 
 import { useGlobal } from "@/app/context/GlobalContext"
 import { AgentCoreClient } from "@/lib/agentcore-client"
-import type { AgentPattern, StreamEvent } from "@/lib/agentcore-client"
+import type { AgentPattern } from "@/lib/agentcore-client"
 import { submitFeedback } from "@/services/feedbackService"
 import { useAuth } from "react-oidc-context"
 import { useDefaultTool } from "@/hooks/useToolRenderer"
@@ -94,11 +94,10 @@ export default function ChatInterface() {
     setMessages((prev) => [...prev, assistantResponse])
 
     try {
-      // Get auth tokens from react-oidc-context
+      // Get auth token from react-oidc-context
       const accessToken = auth.user?.access_token
-      const userId = auth.user?.profile?.sub
 
-      if (!accessToken || !userId) {
+      if (!accessToken) {
         throw new Error("Authentication required. Please log in again.")
       }
 
@@ -123,12 +122,13 @@ export default function ChatInterface() {
         });
       };
 
+      // User identity is extracted server-side from the validated JWT token,
+      // not passed as a parameter — prevents impersonation via prompt injection.
       await client.invoke(
         userMessage,
         sessionId,
         accessToken,
-        userId,
-        (event: StreamEvent) => {
+        (event) => {
           switch (event.type) {
             case "text": {
               // If text arrives after a tool segment, mark all pending tools as complete

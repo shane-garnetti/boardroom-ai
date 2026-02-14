@@ -31,6 +31,7 @@ EXPOSE 8080
 
 # Copy only the agent code
 COPY patterns/langgraph-single-agent/langgraph_agent.py .
+COPY patterns/utils/ utils/
 
 # Healthcheck using Python (no extra dependencies needed)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
