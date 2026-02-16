@@ -35,6 +35,7 @@ if str(scripts_dir) not in sys.path:
     sys.path.insert(0, str(scripts_dir))
 
 from utils import (
+    create_mock_jwt,
     generate_session_id,
     get_stack_config,
     print_msg,
@@ -198,22 +199,30 @@ def invoke_agent_docker(url: str, prompt: str, session_id: str, user_id: str) ->
     """
     Invoke agent and print streaming events.
 
+    Sends a mock JWT Bearer token in the Authorization header so the agent
+    can extract the user ID from the token's 'sub' claim, matching the
+    production authentication flow.
+
     Args:
-        url: Agent endpoint URL
-        prompt: User prompt
-        session_id: Session ID for conversation continuity
-        user_id: User ID
+        url (str): Agent endpoint URL.
+        prompt (str): User prompt.
+        session_id (str): Session ID for conversation continuity.
+        user_id (str): User ID to embed in the mock JWT.
     """
     payload = {
         "prompt": prompt,
         "runtimeSessionId": session_id,
-        "userId": user_id,
     }
+
+    mock_token = create_mock_jwt(user_id)
 
     try:
         response = requests.post(
             url,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {mock_token}",
+            },
             json=payload,
             stream=True,
             timeout=120,

@@ -85,6 +85,23 @@ The script automatically passes these to the container:
 | `AWS_SECRET_ACCESS_KEY` | Local env | AWS authentication |
 | `AWS_SESSION_TOKEN` | Local env | AWS authentication (if using temporary credentials) |
 
+**Important: AWS credentials must be exported as environment variables.** The Docker container cannot read credentials from `~/.aws/credentials` or `~/.aws/config`. Before running, export them:
+
+```bash
+# If using aws configure profiles, export the credentials explicitly:
+export AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id)
+export AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key)
+export AWS_SESSION_TOKEN=$(aws configure get aws_session_token)  # if using temporary credentials
+```
+
+## Authentication: Mock JWT for Local Testing
+
+In production, AgentCore Runtime validates the user's JWT token and passes it to the agent via `RequestContext`. The agent extracts the user ID from the token's `sub` claim — it never trusts a `userId` field in the request payload (to prevent impersonation via prompt injection).
+
+When running locally via Docker, there is no AgentCore Runtime to provide a validated JWT. The test scripts solve this by generating a **mock unsigned JWT** containing the test user ID as the `sub` claim and sending it in the `Authorization: Bearer` header. The agent's `extract_user_id_from_context()` decodes the JWT without signature verification (since Runtime handles that in production), so the mock token works identically to a real one.
+
+This approach ensures the local testing path exercises the same authentication code path as production.
+
 ## Troubleshooting
 
 ### Build fails with "platform mismatch"

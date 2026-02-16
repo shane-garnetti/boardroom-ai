@@ -14,10 +14,14 @@ This guide explains how to run the full FAST stack locally using Docker Compose 
    cdk deploy
    ```
 
-2. **AWS Credentials**: Configure AWS credentials with access to your deployed stack:
+2. **AWS Credentials**: AWS credentials **must be exported as environment variables** — the Docker containers cannot read from `~/.aws/credentials` or `~/.aws/config`:
    ```bash
-   aws configure
-   # OR use environment variables
+   # Option 1: Export from your existing aws configure profile
+   export AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id)
+   export AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key)
+   export AWS_SESSION_TOKEN=$(aws configure get aws_session_token)  # if using temporary credentials
+
+   # Option 2: Set directly
    export AWS_ACCESS_KEY_ID=your-key
    export AWS_SECRET_ACCESS_KEY=your-secret
    export AWS_SESSION_TOKEN=your-token  # if using temporary credentials
@@ -64,6 +68,12 @@ aws cloudformation describe-stacks --stack-name your-stack-name --query 'Stacks[
    - Agent API: http://localhost:8080
    - Agent Health: http://localhost:8080/ping
 
+## Authentication in Local Mode
+
+In production, AgentCore Runtime validates the user's JWT and passes it to the agent. The agent extracts the user ID from the JWT's `sub` claim rather than trusting the request payload (preventing impersonation via prompt injection).
+
+When running locally via Docker Compose, there is no AgentCore Runtime. The test scripts generate a mock unsigned JWT with a test user ID as the `sub` claim and send it in the `Authorization: Bearer` header. This exercises the same code path as production without requiring a real Cognito token.
+
 ## Environment Configuration
 
 Create a `.env` file in the repository root for convenience:
@@ -74,7 +84,7 @@ MEMORY_ID=your-memory-id
 STACK_NAME=your-stack-name
 AWS_DEFAULT_REGION=us-east-1
 
-# AWS Credentials (if not using aws configure)
+# AWS Credentials (required - Docker containers cannot read ~/.aws/credentials)
 AWS_ACCESS_KEY_ID=your-key
 AWS_SECRET_ACCESS_KEY=your-secret
 AWS_SESSION_TOKEN=your-token

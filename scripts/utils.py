@@ -5,6 +5,8 @@ Shared utilities for test scripts
 Provides essential functions for stack discovery, AWS resource fetching, and authentication.
 """
 
+import base64
+import json
 import sys
 import uuid
 from pathlib import Path
@@ -209,3 +211,26 @@ def print_section(title: str, width: int = 60) -> None:
     print("\n" + "=" * width)
     print(title)
     print("=" * width + "\n")
+
+
+def create_mock_jwt(user_id: str) -> str:
+    """
+    Create a mock unsigned JWT token with the given user_id as the 'sub' claim.
+
+    The agent's extract_user_id_from_context() decodes the JWT without signature
+    verification (since AgentCore Runtime validates it in production). This allows
+    local testing to pass a user identity the same way production does.
+
+    Args:
+        user_id (str): The user ID to embed as the 'sub' claim.
+
+    Returns:
+        str: A mock JWT string (header.payload.signature).
+    """
+    header = base64.urlsafe_b64encode(
+        json.dumps({"alg": "none", "typ": "JWT"}).encode()
+    ).rstrip(b"=").decode()
+    payload = base64.urlsafe_b64encode(
+        json.dumps({"sub": user_id}).encode()
+    ).rstrip(b"=").decode()
+    return f"{header}.{payload}."

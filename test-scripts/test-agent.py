@@ -44,6 +44,7 @@ if str(scripts_dir) not in sys.path:
 # Import shared utilities
 from utils import (
     authenticate_cognito,
+    create_mock_jwt,
     generate_session_id,
     get_stack_config,
     print_msg,
@@ -214,6 +215,7 @@ def invoke_agent(
         url (str): Agent endpoint URL
         prompt (str): User prompt/query
         session_id (str): Session ID for conversation continuity
+        user_id (str): User ID (used to generate mock JWT for local testing)
         headers (Optional[Dict[str, str]]): Optional HTTP headers
     """
     payload = {
@@ -222,7 +224,10 @@ def invoke_agent(
     }
 
     if headers is None:
-        headers = {}
+        # Local mode: generate a mock JWT so the agent can extract user_id
+        # from the Authorization header, matching the production auth flow.
+        mock_token = create_mock_jwt(user_id)
+        headers = {"Authorization": f"Bearer {mock_token}"}
     headers["Content-Type"] = "application/json"
 
     try:

@@ -17,5 +17,5 @@ COPY . .
 # Expose port
 EXPOSE 3000
 
-# Start development server
-CMD ["npm", "run", "dev"]
+# Start development server (--host exposes to Docker network)
+CMD ["npm", "run", "dev", "--", "--host"]
