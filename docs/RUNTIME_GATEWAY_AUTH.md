@@ -1,5 +1,5 @@
 # AgentCore M2M Authentication Workflow
-**Runtime <--> OAuth Provider <--> Cognito <--> Gateway**
+**AgentCore Runtime <--> OAuth Provider <--> Cognito <--> AgentCore Gateway**
 
 This document describes the complete workflow for how the AgentCore Runtime uses an OAuth2 Credential Provider (managed by AgentCore Identity) to obtain a Cognito M2M token and authenticate requests to the AgentCore Gateway. It is split into two phases: **Deployment** (infrastructure setup) and **Runtime** (live token and request flow).
 
@@ -384,7 +384,7 @@ AgentCore Gateway (CUSTOM_JWT authorizer)
             --> INVALID --> returns 401 Unauthorized
 ```
 
-**Why allowedClients scoping:** The Gateway only accepts tokens issued to the specific machine client you created. Even if another Cognito client in the same User Pool obtained a token, it would be rejected. This is intentional tight scoping -- only the Runtime's machine client can call this Gateway.
+**Why allowedClients scoping:** The AgentCore Gateway only accepts tokens issued to the specific machine client you created. Even if another Cognito client in the same User Pool obtained a token, it would be rejected. This is intentional tight scoping -- only the AgentCore Runtime's machine client can call this AgentCore Gateway.
 
 ### Step R6 -- Gateway Forwards to MCP Tool Lambda
 
@@ -400,7 +400,164 @@ AgentCore Gateway (GatewayRole)
     --> lambda:InvokeFunction on toolLambda
         --> MCP tool invocation payload
     <-- Lambda returns tool result
-    <-- Gateway returns MCP response to Runtime
+    <-- AgentCore Gateway returns MCP response to AgentCore Runtime
     <-- MCPClient delivers result to agent code
     <-- Agent code continues execution with tool result
 ```
+
+---
+
+## APPENDIX: Replacing Cognito with an Alternative IdP for M2M Auth
+
+This section describes how to replace Cognito with an alternative identity provider (IdP) for the Runtime --> Gateway M2M authentication flow. The Client --> Runtime user authentication flow is independent and remains unchanged (see "User Auth vs. M2M Auth -- They Are Separate" above).
+
+### Scope of This Change
+
+The M2M flow uses the OAuth2 Client Credentials grant: the Runtime obtains a machine token using a `client_id` and `client_secret` registered with an IdP, and the Gateway validates that token using the IdP's JWKS. Neither the user's identity nor the user's token is involved at any point — the Runtime authenticates as itself, not on behalf of the user.
+
+**Note on future user-delegated flows:** This document covers the current Phase 1 implementation, where the Runtime-to-Gateway flow is pure M2M (Client Credentials grant). A future phase may introduce user-delegated (3-legged OAuth / Authorization Code grant) flows, where the Runtime obtains a token on behalf of the authenticated user and the Gateway receives a token carrying the user's identity. AgentCore Identity supports both flows. When that phase is implemented, the Gateway authorizer configuration and the `@requires_access_token` decorator's `auth_flow` parameter will need to be updated accordingly — the IdP swap guidance in this section applies to both flows.
+
+To replace Cognito in this flow, two trust relationships must be updated:
+
+1. **AgentCore Gateway's JWT authorizer** — must point to the new IdP's discovery URL and accept the new client's `client_id`
+2. **AgentCore Identity's OAuth2 Credential Provider** — must be configured with the new IdP's discovery URL, `client_id`, and `client_secret`
+
+The Token Vault, `@requires_access_token` decorator, Workload Identity, and AgentCore Runtime code are IdP-agnostic and require no changes.
+
+### Supported IdPs
+
+AgentCore Identity supports two modes for OAuth2 providers:
+
+1. **Built-in managed providers** (pre-configured and maintained by AWS): Amazon Cognito, Auth0 by Okta, Atlassian, CyberArk, Dropbox, Facebook, FusionAuth, GitHub, Google, HubSpot, LinkedIn, Microsoft, Notion, Okta, OneLogin, Ping Identity, Reddit, Salesforce, Slack, Spotify, Twitch, X, Yandex, Zoom
+
+2. **CustomOauth2** (what this stack uses): Any OIDC-compliant IdP that exposes a `.well-known/openid-configuration` discovery endpoint. This is the generic path and works for all IdPs listed above.
+
+**Why this stack uses CustomOauth2 even though Cognito is a built-in vendor:** The built-in `AmazonCognito` vendor in AgentCore Identity is designed for user-delegated (3-legged OAuth / Authorization Code grant) flows, where an agent acts on behalf of a human user. The M2M Client Credentials grant used here does not involve a user — the Runtime authenticates as itself. `CustomOauth2` with a `discoveryUrl` is the correct path for Client Credentials / M2M flows regardless of which IdP is backing it, and it treats Cognito as a standard OIDC provider. This choice also makes the stack IdP-portable by design: swapping to a different IdP only requires changing the `discoveryUrl` and client credentials values, not the Custom Lambda code.
+
+For M2M (Client Credentials grant), the replacement IdP must support:
+
+- OAuth 2.0 Client Credentials grant (`grant_type=client_credentials`)
+- OIDC Discovery (`.well-known/openid-configuration`) for JWKS-based JWT validation
+- Configurable scopes on the client application
+- Confidential client with a client secret
+
+Most enterprise IdPs support these requirements natively. Examples include Microsoft Entra ID, Okta, and Auth0 — refer to your IdP's documentation to confirm Client Credentials grant and OIDC Discovery support before proceeding.
+
+### CDK Stack Modifications Required
+
+#### 1. createMachineAuthentication() — Full replacement
+
+This method is Cognito-specific. It creates the `UserPoolResourceServer`, `UserPoolClient` (machine client), and `MachineClientSecret`. These resources establish the OAuth2 machine client identity and define the scopes it can request. For a different IdP, the equivalent setup is done in the IdP's own console or management tooling.
+
+**What this step must produce for the following steps:**
+
+- **`client_id`**: The OAuth2 client identifier for the machine client
+  - Used by: Gateway authorizer (`allowedClients`), Custom Resource (`properties.ClientId`)
+- **`client_secret`**: The OAuth2 client secret for the machine client
+  - Used by: Stored in Secrets Manager as Secret 1 (`/<stack-name>/machine_client_secret`)
+- **Discovery URL**: The IdP's OIDC discovery endpoint
+  - Used by: Gateway authorizer (`discoveryUrl`), Custom Resource (`properties.DiscoveryUrl`)
+
+Store the `client_id` and `client_secret` in Secrets Manager at `/<stack-name>/machine_client_secret` using the same `secretsmanager.Secret` pattern as the original. The discovery URL is a static string — store it as a variable or SSM parameter for use in the steps below.
+
+For IdP-specific setup (creating a confidential client, enabling Client Credentials grant, defining scopes), refer to your IdP's documentation.
+
+#### 2. createAgentCoreGateway() — Discovery URL and allowedClients values
+
+**Change A — Discovery URL variable:**
+
+```typescript
+// Current (Cognito):
+const cognitoIssuer = `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`
+const cognitoDiscoveryUrl = `${cognitoIssuer}/.well-known/openid-configuration`
+
+// Any OIDC-compliant IdP:
+const discoveryUrl = `<idp-issuer-url>/.well-known/openid-configuration`
+```
+
+**Change B — CfnGateway authorizer configuration:**
+
+```typescript
+authorizerConfiguration: {
+  customJwtAuthorizer: {
+    allowedClients: [<new-idp-client-id>],   // replace machineClient.userPoolClientId
+    discoveryUrl: discoveryUrl,               // replace cognitoDiscoveryUrl
+  },
+},
+```
+
+**Change C — Remove Cognito-specific IAM permissions from GatewayRole:**
+
+```typescript
+// Remove these — they are Cognito-specific and not needed for other IdPs:
+// cognito-idp:DescribeUserPoolClient
+// cognito-idp:InitiateAuth
+```
+
+**Why**: The Gateway uses the `discoveryUrl` to fetch the IdP's JWKS at runtime for JWT signature verification. The `allowedClients` restriction ensures only tokens issued to your specific machine client are accepted. The Cognito IAM permissions are only needed for Cognito-specific API calls; other IdPs use standard OIDC/JWKS endpoints that do not require AWS IAM permissions.
+
+#### 3. Custom Resource properties — Values only, no Lambda code change
+
+The `oauth2ProviderLambda` code is already IdP-agnostic. It uses `credentialProviderVendor="CustomOauth2"` with a generic `discoveryUrl` — no code changes are required. Only the properties passed to the Custom Resource change:
+
+```typescript
+const runtimeCredentialProvider = new cdk.CustomResource(this, "RuntimeCredentialProvider", {
+  serviceToken: oauth2Provider.serviceToken,
+  properties: {
+    ProviderName: providerName,
+    ClientSecretArn: this.machineClientSecret.secretArn,  // same pattern, new IdP secret
+    DiscoveryUrl: discoveryUrl,                           // new IdP discovery URL
+    ClientId: <new-idp-client-id>,                        // new IdP client_id
+  },
+})
+```
+
+**Why**: The Lambda reads whatever `DiscoveryUrl` and `ClientId` are passed in and registers them with AgentCore Identity as a `CustomOauth2` provider. The Token Vault then uses these values to call the correct IdP token endpoint at runtime. The Lambda's `handle_create`, `handle_update`, and `handle_delete` handlers require zero changes.
+
+**Note on built-in vendors**: If you want to use a built-in vendor (listed in the Supported IdPs section above) instead of `CustomOauth2`, change `credentialProviderVendor` in `handle_create` and `handle_update` in the Lambda. Built-in vendors have AWS-managed endpoint configurations and may handle provider-specific quirks automatically. However, `CustomOauth2` with a discovery URL works for all OIDC-compliant IdPs and is simpler to maintain across environments.
+
+#### 4. createAgentCoreRuntime() — No changes required
+
+The Runtime only knows the `GATEWAY_CREDENTIAL_PROVIDER_NAME` environment variable. It does not know or care which IdP backs the provider. The Token Vault resolves the IdP interaction transparently using the configuration registered in Step D3.
+
+#### 5. createCognitoSSMParameters() — Rename Cognito-specific parameters (optional)
+
+The SSM parameters `cognito-user-pool-id`, `cognito-user-pool-client-id`, and `cognito_provider` are Cognito-specific by name. For a different IdP, rename these to IdP-agnostic equivalents (e.g., `idp-discovery-url`, `machine-client-id`). The `gateway_url` and `machine_client_id` parameters are already IdP-agnostic.
+
+---
+
+### Summary: What Changes vs. What Does Not
+
+**Components that require changes:**
+
+- **createMachineAuthentication()** — Full replacement required
+  - Cognito-specific resources must be replaced with equivalent IdP client setup
+  - Must produce: `client_id`, `client_secret`, Discovery URL
+- **CfnGateway authorizerConfiguration** — Update values
+  - Change `discoveryUrl` to new IdP's OIDC discovery endpoint
+  - Change `allowedClients` to new IdP's `client_id`
+- **GatewayRole IAM permissions** — Remove Cognito-specific permissions
+  - Remove `cognito-idp:DescribeUserPoolClient`
+  - Remove `cognito-idp:InitiateAuth`
+- **Custom Resource properties** — Update values only
+  - Change `DiscoveryUrl` to new IdP's discovery endpoint
+  - Change `ClientId` to new IdP's `client_id`
+  - Change `ClientSecretArn` to point to new IdP secret in Secrets Manager
+- **SSM parameter names** — Optional rename (cosmetic only)
+  - Rename Cognito-specific parameter names to IdP-agnostic equivalents if desired
+
+**Components that require NO changes:**
+
+- **oauth2ProviderLambda code** — Already IdP-agnostic
+  - Uses generic `CustomOauth2` vendor with `discoveryUrl` parameter
+  - No code changes needed in `handle_create`, `handle_update`, or `handle_delete`
+  - **Optional**: Can switch to built-in vendor by changing `credentialProviderVendor` in Lambda code, but `CustomOauth2` works for all OIDC-compliant IdPs
+- **createAgentCoreRuntime()** — Already IdP-agnostic
+  - Only knows `GATEWAY_CREDENTIAL_PROVIDER_NAME` environment variable
+  - Token Vault resolves IdP interaction transparently
+- **Agent code** — Already IdP-agnostic
+  - Uses `@requires_access_token` decorator which is IdP-agnostic
+  - No changes needed in agent code regardless of which agent pattern is used
+- **Client → Runtime user authentication** — Independent flow
+  - Separate concern from Runtime → Gateway M2M authentication
+  - Not affected by M2M IdP changes

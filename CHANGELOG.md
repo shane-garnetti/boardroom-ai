@@ -10,28 +10,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - OAuth2 Credential Provider Lambda handler (`infra-cdk/lambdas/oauth2-provider/index.py`) for lifecycle management with Create, Update, and Delete support
-- Conditional token refresh helpers (`_fetch_gateway_token`) in both Strands and LangGraph agents with Runtime (decorator) and Docker (manual) implementations
-- Environment variable `USE_AGENTCORE_IDENTITY_OAUTH` for controlling authentication path (Runtime vs Docker)
-- Docker testing support with environment variable configuration in `test-scripts/test-agent-docker.py`
-- Machine client secret storage in Secrets Manager for OAuth2 authentication
+- AgentCore Identity OAuth2 integration via `@requires_access_token` decorator in agent patterns
+- Token refresh helpers (`_fetch_gateway_token`) in both Strands and LangGraph agents for fresh token retrieval
+- Decorator comment explaining OAuth2 Credential Provider and Token Vault caching behavior
 - Runtime environment variable `GATEWAY_CREDENTIAL_PROVIDER_NAME` for OAuth2 provider lookup
 - OAuth2 Credential Provider and Token Vault IAM permissions to agent runtime role
 - Scoped Secrets Manager IAM permissions to agent runtime role for OAuth2 secrets
 - `docs/RUNTIME_GATEWAY_AUTH.md` - Comprehensive documentation of the M2M authentication workflow between AgentCore Runtime and Gateway, covering both deployment (OAuth2 provider registration) and runtime (token retrieval and validation) phases
+- Updated architecture diagram (`docs/architecture-diagram/FAST-architecture-20260302.png`) illustrating OAuth2 M2M authentication flow with Token Vault and OAuth2 Credential Provider
 
 ### Changed
 
-- Migrated Gateway authentication to AgentCore SDK `@requires_access_token` decorator for AgentCore Runtime while maintaining manual OAuth2 implementation as fallback for Docker local testing
-- Implemented conditional authentication logic in agent patterns to support both Runtime (decorator) and Docker (manual) environments
+- Migrated Gateway authentication to AgentCore SDK `@requires_access_token` decorator
+- Simplified agent code in `patterns/strands-single-agent/basic_agent.py` and `patterns/langgraph-single-agent/langgraph_agent.py`
 - Use `cr.Provider` pattern for OAuth2 provider to avoid IAM propagation delays
 - Implemented scoped IAM permissions for OAuth2 provider, Token Vault, and Secrets Manager
-- Updated OAuth2 Custom Resource to pass secret ARN instead of plaintext value for enhanced security
+- Updated OAuth2 Custom Resource to pass secret ARN for enhanced security (secret retrieved at Lambda runtime)
 - Modified agent token handling to fetch fresh tokens on reconnection (Strands) and per-request (LangGraph)
 - Moved Secrets Manager permissions from base `AgentCoreRole` utility class to backend-stack.ts for better separation of concerns
+- Updated `README.md` to reference new architecture diagram and clarify OAuth2 M2M authentication flow descriptions
+- Updated `test-scripts/README.md` to remove Docker container testing documentation
 
 ### Removed
 
-- Wildcard Secrets Manager IAM permissions from base `AgentCoreRole` utility class (moved to scoped permissions in backend-stack.ts)
+- Docker container testing script (`test-scripts/test-agent-docker.py`)
+- Docker testing documentation (`docs/LOCAL_DOCKER_TESTING.md`)
+- Manual OAuth2 functions from `patterns/utils/auth.py` (`get_gateway_access_token()`, `get_secret()`)
+- Manual token fetching logic from agent code
+- Direct Secrets Manager access from agents
+- Wildcard Secrets Manager IAM permissions from base `AgentCoreRole` utility class
 
 ### Fixed
 
@@ -40,9 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Enhanced security by delegating OAuth2 token management to AgentCore Identity service in AgentCore Runtime
-- Eliminated plaintext secret passing to Custom Resources (now uses ARN references)
-- Improved token lifecycle management with automatic refresh and error handling
+- Enhanced security by delegating OAuth2 token management to AgentCore Identity service
+- Improved token lifecycle management with automatic refresh and error handling via Token Vault
 
 ## [0.3.1] - 2026-02-11
 

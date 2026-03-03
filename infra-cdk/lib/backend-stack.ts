@@ -269,7 +269,7 @@ export class BackendStack extends cdk.NestedStack {
       })
     )
 
-    // Add SSM permissions for Gateway URL lookup
+    // Add SSM permissions for AgentCore Gateway URL lookup
     agentRole.addToPolicy(
       new iam.PolicyStatement({
         sid: "SSMParameterAccess",
@@ -295,7 +295,7 @@ export class BackendStack extends cdk.NestedStack {
       })
     )
 
-    // Add OAuth2 Credential Provider access
+    // Add OAuth2 Credential Provider access for AgentCore Runtime
     // The @requires_access_token decorator performs a two-stage process:
     // 1. GetOauth2CredentialProvider - Looks up provider metadata (ARN, vendor config, grant types)
     // 2. GetResourceOauth2Token - Uses metadata to fetch the actual access token from Token Vault
@@ -316,7 +316,7 @@ export class BackendStack extends cdk.NestedStack {
     )
 
     // Add Secrets Manager access for OAuth2
-    // Runtime needs to read two secrets:
+    // AgentCore Runtime needs to read two secrets:
     // 1. Machine client secret (created by CDK)
     // 2. Token Vault OAuth2 secret (created by AgentCore Identity)
     agentRole.addToPolicy(
@@ -662,7 +662,7 @@ export class BackendStack extends cdk.NestedStack {
     const cognitoIssuer = `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`
     const cognitoDiscoveryUrl = `${cognitoIssuer}/.well-known/openid-configuration`
 
-    // Create OAuth2 Credential Provider for Runtime to authenticate with Gateway
+    // Create OAuth2 Credential Provider for AgentCore Runtime to authenticate with AgentCore Gateway
     // Uses cr.Provider pattern with explicit Lambda to avoid logging secrets in CloudWatch
     const providerName = `${config.stack_name_base}-runtime-gateway-auth`
 
@@ -807,7 +807,7 @@ export class BackendStack extends cdk.NestedStack {
     gateway.node.addDependency(this.machineClient)
     gateway.node.addDependency(gatewayRole)
 
-    // Store Gateway URL in SSM for runtime access
+    // Store AgentCore Gateway URL in SSM for AgentCore Runtime access
     new ssm.StringParameter(this, "GatewayUrlParam", {
       parameterName: `/${config.stack_name_base}/gateway_url`,
       stringValue: gateway.attrGatewayUrl,
