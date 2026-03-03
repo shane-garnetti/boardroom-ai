@@ -452,39 +452,23 @@ def stream_build_logs(build_id: str) -> str:
 
 
 def cleanup_resources(
-    project_name: Optional[str],
     role_name: Optional[str],
     bucket_name: Optional[str],
 ) -> None:
     """
-    Delete all temporary AWS resources. Best-effort — errors are logged, not raised.
+    Delete temporary AWS resources (S3 bucket and IAM role).
+    Best-effort — errors are logged, not raised.
+
+    The CodeBuild project is intentionally retained for debugging via the AWS console.
 
     Args:
-        project_name: CodeBuild project name (or None to skip)
         role_name: IAM role name (or None to skip)
         bucket_name: S3 bucket name (or None to skip)
     """
-    if not any([project_name, role_name, bucket_name]):
+    if not any([role_name, bucket_name]):
         return
 
-    log_info("Cleaning up temporary resources...")
-
-    if project_name:
-        try:
-            run_command(
-                [
-                    "aws",
-                    "codebuild",
-                    "delete-project",
-                    "--name",
-                    project_name,
-                    "--output",
-                    "json",
-                ]
-            )
-            log_success(f"Deleted CodeBuild project: {project_name}")
-        except subprocess.CalledProcessError as exc:
-            log_error(f"Failed to delete CodeBuild project: {exc}")
+    log_info("Cleaning up temporary resources (keeping CodeBuild project for debugging)...")
 
     if bucket_name:
         try:
@@ -554,7 +538,6 @@ def main() -> int:
 
     def _cleanup() -> None:
         cleanup_resources(
-            project_name=resources["project"],
             role_name=resources["role"],
             bucket_name=resources["bucket"],
         )
@@ -652,11 +635,20 @@ def main() -> int:
                 log_success(f"App URL: {app_url}")
         except (subprocess.CalledProcessError, ValueError):
             log_info("Could not retrieve App URL - check the AWS console")
-        return 0
     else:
         log_error(f"Build finished with status: {final_status}")
         log_info("Check the build output above for details")
-        return 1
+
+    # CodeBuild project is retained for debugging — inform the user
+    log_info(
+        f"CodeBuild project '{resources['project']}' retained for debugging. "
+        f"View in console: https://{region}.console.aws.amazon.com/codesuite/codebuild/projects/{resources['project']}"
+    )
+    log_info(
+        f"To delete it manually: aws codebuild delete-project --name {resources['project']}"
+    )
+
+    return 0 if final_status == "SUCCEEDED" else 1
 
 
 if __name__ == "__main__":
