@@ -181,15 +181,88 @@ def create_s3_bucket(bucket_name: str, region: str) -> None:
     run_command(cmd)
 
 
-def create_codebuild_iam_role(role_name: str) -> str:
+def create_permission_boundary(policy_name: str) -> str:
     """
-    Create a temporary IAM role for CodeBuild with AdministratorAccess.
+    Create an IAM permission boundary policy that denies dangerous actions.
 
-    CDK needs broad permissions to create all resource types.
+    Even though the CodeBuild role gets AdministratorAccess, this boundary
+    acts as a ceiling — the role cannot perform any action denied here.
+    Blocks privilege escalation paths like creating IAM users/access keys,
+    modifying KMS key policies, and organization-level operations.
+
+    Args:
+        policy_name: Name for the IAM boundary policy
+
+    Returns:
+        The ARN of the created permission boundary policy
+    """
+    log_info(f"Creating permission boundary: {policy_name}")
+
+    # Deny dangerous actions that a CDK deployment should never need.
+    # The Allow statement is required for a permission boundary to work —
+    # it defines the maximum permissions ceiling, while the Deny statements
+    # carve out explicit exceptions that cannot be overridden.
+    boundary_policy: Dict[str, Any] = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "DenyDangerousActions",
+                "Effect": "Deny",
+                "Action": [
+                    "iam:CreateUser",
+                    "iam:CreateAccessKey",
+                    "iam:PutRolePolicy",
+                    "iam:CreateLoginProfile",
+                    "iam:AttachUserPolicy",
+                    "iam:PutUserPolicy",
+                    "organizations:*",
+                    "account:*",
+                    "kms:PutKeyPolicy",
+                    "kms:CreateGrant",
+                ],
+                "Resource": "*",
+            },
+            {
+                "Sid": "AllowEverythingElse",
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        ],
+    }
+
+    result = run_command(
+        [
+            "aws",
+            "iam",
+            "create-policy",
+            "--policy-name",
+            policy_name,
+            "--policy-document",
+            json.dumps(boundary_policy),
+            "--output",
+            "json",
+        ]
+    )
+    boundary_arn: str = json.loads(result.stdout)["Policy"]["Arn"]
+    log_success(f"Permission boundary created: {boundary_arn}")
+    return boundary_arn
+
+
+def create_codebuild_iam_role(role_name: str, boundary_arn: str) -> str:
+    """
+    Create a temporary IAM role for CodeBuild with AdministratorAccess,
+    constrained by a permission boundary that blocks dangerous actions.
+
+    CDK needs broad permissions to create all resource types, so we attach
+    AdministratorAccess but use a permission boundary as a safety ceiling
+    to prevent privilege escalation (e.g. creating IAM users, access keys).
+
     The role is deleted after the build completes.
 
     Args:
         role_name: Name for the IAM role
+        boundary_arn: ARN of the permission boundary policy to attach
 
     Returns:
         The ARN of the created role
@@ -216,6 +289,8 @@ def create_codebuild_iam_role(role_name: str) -> str:
             role_name,
             "--assume-role-policy-document",
             json.dumps(trust_policy),
+            "--permissions-boundary",
+            boundary_arn,
             "--output",
             "json",
         ]
@@ -236,7 +311,8 @@ def create_codebuild_iam_role(role_name: str) -> str:
         ]
     )
 
-    # IAM is eventually consistent
+    # IAM is eventually consistent — CodeBuild will fail to assume the role
+    # if we proceed too quickly after creation.
     log_info("Waiting 10s for IAM role propagation...")
     time.sleep(10)
     return role_arn
@@ -453,22 +529,26 @@ def stream_build_logs(build_id: str) -> str:
 
 def cleanup_resources(
     role_name: Optional[str],
+    boundary_arn: Optional[str],
     bucket_name: Optional[str],
 ) -> None:
     """
-    Delete temporary AWS resources (S3 bucket and IAM role).
+    Delete temporary AWS resources (S3 bucket, IAM role, and permission boundary).
     Best-effort — errors are logged, not raised.
 
     The CodeBuild project is intentionally retained for debugging via the AWS console.
 
     Args:
         role_name: IAM role name (or None to skip)
+        boundary_arn: ARN of the permission boundary policy (or None to skip)
         bucket_name: S3 bucket name (or None to skip)
     """
-    if not any([role_name, bucket_name]):
+    if not any([role_name, boundary_arn, bucket_name]):
         return
 
-    log_info("Cleaning up temporary resources (keeping CodeBuild project for debugging)...")
+    log_info(
+        "Cleaning up temporary resources (keeping CodeBuild project for debugging)..."
+    )
 
     if bucket_name:
         try:
@@ -518,6 +598,26 @@ def cleanup_resources(
         except subprocess.CalledProcessError as exc:
             log_error(f"Failed to delete IAM role: {exc}")
 
+    # Delete the permission boundary policy after the role is gone.
+    # The role must be deleted first since IAM won't delete a policy
+    # that is still attached as a permissions boundary.
+    if boundary_arn:
+        try:
+            run_command(
+                [
+                    "aws",
+                    "iam",
+                    "delete-policy",
+                    "--policy-arn",
+                    boundary_arn,
+                    "--output",
+                    "json",
+                ]
+            )
+            log_success(f"Deleted permission boundary policy: {boundary_arn}")
+        except subprocess.CalledProcessError as exc:
+            log_error(f"Failed to delete permission boundary policy: {exc}")
+
 
 # --- Main ---
 
@@ -533,12 +633,14 @@ def main() -> int:
     resources: Dict[str, Optional[str]] = {
         "project": None,
         "role": None,
+        "boundary_arn": None,
         "bucket": None,
     }
 
     def _cleanup() -> None:
         cleanup_resources(
             role_name=resources["role"],
+            boundary_arn=resources["boundary_arn"],
             bucket_name=resources["bucket"],
         )
 
@@ -581,6 +683,7 @@ def main() -> int:
     resources["project"] = f"{RESOURCE_PREFIX}-{ts}"
     resources["role"] = f"{RESOURCE_PREFIX}-role-{ts}"
     resources["bucket"] = f"{RESOURCE_PREFIX}-{account_id}-{ts}"
+    boundary_name: str = f"{RESOURCE_PREFIX}-boundary-{ts}"
 
     # Package source
     log_info("Packaging source...")
@@ -607,8 +710,13 @@ def main() -> int:
     finally:
         os.unlink(tmp_path)
 
-    # Create temp IAM role
-    role_arn: str = create_codebuild_iam_role(role_name=resources["role"])
+    # Create permission boundary and temp IAM role
+    boundary_arn: str = create_permission_boundary(policy_name=boundary_name)
+    resources["boundary_arn"] = boundary_arn
+    role_arn: str = create_codebuild_iam_role(
+        role_name=resources["role"],
+        boundary_arn=boundary_arn,
+    )
 
     # Create project and start build
     create_codebuild_project(

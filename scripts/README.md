@@ -61,12 +61,15 @@ change anything:
 python scripts/deploy-with-codebuild.py
 ```
 
-Creates temporary AWS resources (S3 bucket, IAM role, CodeBuild project), runs the full deployment in the cloud, streams logs to your terminal, and cleans up all temporary resources on exit.
+Creates temporary AWS resources (S3 bucket, IAM role with permission boundary, CodeBuild project), runs the full deployment in the cloud, streams logs to your terminal, and cleans up all temporary resources on exit.
+
+The temporary IAM role is created with `AdministratorAccess` but constrained by a permission boundary that explicitly denies dangerous actions such as `iam:CreateUser`, `iam:CreateAccessKey`, `organizations:*`, and others. This prevents privilege escalation even if the build is compromised.
 
 Your IAM user/role needs these permissions to run the script:
 
 - `s3:CreateBucket`, `s3:DeleteBucket`, `s3:PutObject`, `s3:DeleteObject`
 - `iam:CreateRole`, `iam:DeleteRole`, `iam:AttachRolePolicy`, `iam:DetachRolePolicy`
+- `iam:CreatePolicy`, `iam:DeletePolicy`
 - `codebuild:CreateProject`, `codebuild:StartBuild`, `codebuild:BatchGetBuilds`
 - `logs:GetLogEvents`
 - `sts:GetCallerIdentity`
