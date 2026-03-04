@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- [Terraform] Full Terraform infrastructure alternative to CDK (`infra-terraform/`) with modules for Amplify Hosting, Cognito, and Backend (Runtime, Gateway, Memory, Feedback API, SSM)
+- [Terraform] Support for both Docker and Zip deployment types via `deployment_type` variable
+- [Terraform] Dedicated scripts for frontend deployment (`deploy-frontend.py`, `deploy-frontend.sh`), Docker image build (`build-and-push-image.sh`), and agent testing (`test-agent.py`)
+- [Terraform] S3 backend configuration example (`backend.tf.example`) for remote state management
+- [Terraform] Version bump playbook (`TF_VERSION_BUMP_PLAYBOOK.md`) with independent versioning scheme
 - OAuth2 Credential Provider Lambda handler (`infra-cdk/lambdas/oauth2-provider/index.py`) for lifecycle management with Create, Update, and Delete support
 - AgentCore Identity OAuth2 integration via `@requires_access_token` decorator in agent patterns
 - Token refresh helpers (`_fetch_gateway_token`) in both Strands and LangGraph agents for fresh token retrieval
