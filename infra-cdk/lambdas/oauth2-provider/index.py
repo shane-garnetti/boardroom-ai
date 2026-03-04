@@ -11,9 +11,9 @@ CloudFormation Events:
 - Delete: Deletes OAuth2 provider by name
 """
 
-import boto3
-import json
 import logging
+
+import boto3
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
