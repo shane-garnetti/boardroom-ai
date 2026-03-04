@@ -4,9 +4,9 @@ _Author's note: for the official name for this solution is the "Fullstack Soluti
 
 The Fullstack AgentCore Solution Template (FAST) is a starter project repository that enables users (delivery scientists and engineers) to quickly deploy a secured, web-accessible React frontend connected to an AgentCore backend. Its purpose is to accelerate building full stack applications on AgentCore from weeks to days by handling the undifferentiated heavy lifting of infrastructure setup and to enable vibe-coding style development on top. The only central dependency of FAST is AgentCore. It is agnostic to agent SDK (Strands, LangGraph, etc) and to coding assistant platforms (Q, Kiro, Cline, Claude Code, etc).
 
-FAST is designed with security and vibe-codability as primary tenets. Best practices and knowledge from experts are codified in _documentation_ in this repository rather than in _code_. By including this documentation in an AI coding assistant's context, or by instructing the AI coding assistant to leverage best practices and code snippets found in the documentation, delivery scientists and developers can quickly vibe-build AgentCore applications for any use case. AI coding assistants can be used to fully customize the frontend and the cdk infrastructure, enabling scientists to focus the areas where their knowledge is most impactful: the actual prompt engineering and GenAI implementation details.
+FAST is designed with security and vibe-codability as primary tenets. Best practices and knowledge from experts are codified in _documentation_ in this repository rather than in _code_. By including this documentation in an AI coding assistant's context, or by instructing the AI coding assistant to leverage best practices and code snippets found in the documentation, delivery scientists and developers can quickly vibe-build AgentCore applications for any use case. AI coding assistants can be used to fully customize the frontend and the infrastructure, enabling scientists to focus the areas where their knowledge is most impactful: the actual prompt engineering and GenAI implementation details.
 
-With FAST as a starting point and development framework, delivery scientists and engineers will accelerate their development process and deliver production quality AgentCore code following architecture and security best practices without having to learn any frontend or infrastructure (cdk) code.
+With FAST as a starting point and development framework, delivery scientists and engineers will accelerate their development process and deliver production quality AgentCore code following architecture and security best practices without having to learn any frontend or infrastructure code.
 
 ## FAST Baseline System
 
@@ -44,6 +44,8 @@ python scripts/deploy-frontend.py
 
 See the [deployment guide](docs/DEPLOYMENT.md) for detailed instructions on how to deploy FAST into an AWS account.
 
+> **Terraform alternative:** FAST also supports Terraform for infrastructure deployment. See [`infra-terraform/README.md`](infra-terraform/README.md) for the Terraform deployment guide. We recommend choosing one infrastructure tool and deleting the other directory (`infra-cdk/` or `infra-terraform/`) from your fork to keep things clean.
+
 What comes next? That's up to you, the developer. With your requirements in mind, open up your coding assistant, describe what you'd like to do, and begin. The steering docs in this repository help guide coding assistants with best practices, and encourage them to always refer to the documentation built-in to the repository to make sure you end up building something great.
 
 ## Architecture
@@ -61,7 +63,7 @@ The out-of-the-box architecture is shown above. The diagram illustrates the auth
 - **Frontend**: React with TypeScript, Vite, Tailwind CSS, and shadcn components - infinitely flexible and ready for coding assistants
 - **Agent Providers**: Multiple agent providers supported (Strands, LangGraph, etc.) running within AgentCore Runtime
 - **Authentication**: AWS Cognito User Pool with OAuth support for easy swapping out Cognito
-- **Infrastructure**: CDK deployment with Amplify Hosting for frontend and AgentCore backend
+- **Infrastructure**: CDK deployment with Amplify Hosting for frontend and AgentCore backend ([Terraform also supported](infra-terraform/README.md))
 
 ## Project Structure
 
@@ -102,6 +104,15 @@ fullstack-agentcore-solution-template/
 │   │   ├── feedback/       # Feedback API handler
 │   │   └── zip-packager/   # Runtime ZIP packager
 │   └── config.yaml         # Deployment configuration
+├── infra-terraform/        # Terraform infrastructure (alternative to CDK)
+│   ├── modules/            # Terraform modules
+│   │   ├── amplify-hosting/ # Amplify Hosting module
+│   │   ├── cognito/        # Cognito User Pool module
+│   │   └── backend/        # Backend resources module
+│   ├── scripts/            # Terraform-specific deployment scripts
+│   ├── lambdas/            # Terraform-specific Lambda code
+│   ├── terraform.tfvars.example # Example variable file
+│   └── README.md           # Terraform deployment guide
 ├── patterns/               # Agent pattern implementations
 │   ├── strands-single-agent/ # Basic strands agent pattern
 │   │   ├── basic_agent.py  # Agent implementation
