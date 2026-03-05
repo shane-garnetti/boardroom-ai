@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- VPC deployment mode (`network_mode: VPC`) for deploying AgentCore Runtime into an existing user-provided VPC for private network isolation
+- VPC configuration in `config.yaml` with `vpc_id`, `subnet_ids`, and optional `security_group_ids`
+- VPC configuration validation in `ConfigManager` for required fields when VPC mode is enabled
+- `buildNetworkConfiguration()` method in backend stack to import existing VPC, subnets, and security groups
+- VPC deployment documentation in `docs/DEPLOYMENT.md` including required VPC endpoints, subnet requirements, and traffic flow explanation
 - CodeBuild-based deployment script (`scripts/deploy-with-codebuild.py`) that enables deploying FAST without requiring Docker
 - [Terraform] Full Terraform infrastructure alternative to CDK (`infra-terraform/`) with modules for Amplify Hosting, Cognito, and Backend (Runtime, Gateway, Memory, Feedback API, SSM)
 - [Terraform] Support for both Docker and Zip deployment types via `deployment_type` variable
