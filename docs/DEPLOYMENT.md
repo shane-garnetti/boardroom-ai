@@ -65,7 +65,22 @@ FAST supports two deployment types for AgentCore Runtime. Set `deployment_type` 
 
 ### VPC Deployment (Private Network)
 
-By default, the AgentCore Runtime runs in PUBLIC network mode with internet access. To deploy the runtime into an existing VPC for private network isolation, set `network_mode: VPC` in `infra-cdk/config.yaml` and provide your VPC details:
+By default, the AgentCore Runtime runs in PUBLIC network mode with internet access. To deploy the runtime into an existing VPC for private network isolation, set `network_mode: VPC` in `infra-cdk/config.yaml` and provide your VPC details.
+
+#### What runs inside vs outside the VPC
+
+When VPC mode is enabled, the **AgentCore Runtime** (your agent code) runs inside your VPC's private subnets. All network calls the agent makes are subject to VPC networking rules and reach AWS services through VPC endpoints — the agent never makes direct internet calls.
+
+The following components run **outside** the VPC in AWS-managed infrastructure:
+
+- **Gateway tool Lambdas** — The agent calls the Gateway through the `bedrock-agent-runtime` VPC endpoint (private networking). The Gateway then invokes Lambda functions on AWS-managed infrastructure. The agent's network call stays private; only the Lambda execution happens outside the VPC.
+- **Code Interpreter** — The agent calls the Code Interpreter API through the `bedrock-agent-runtime` VPC endpoint. The sandbox execution happens in Bedrock's managed environment.
+- **Bedrock model invocations** — Model calls go through the `bedrock-runtime` VPC endpoint to Bedrock's managed infrastructure.
+- **Frontend (Amplify/CloudFront)** — Entirely separate, public-facing, and not part of the VPC deployment.
+
+In short: the agent's outbound network traffic stays on private AWS networking via VPC endpoints. The services it calls (Bedrock, Gateway, Code Interpreter) may execute on infrastructure outside the VPC, but the network path from the agent to those service APIs is private.
+
+#### Configuration
 
 ```yaml
 backend:
@@ -91,6 +106,8 @@ When deploying in VPC mode, the runtime runs in private subnets without internet
 |----------|---------|------|
 | `com.amazonaws.{region}.bedrock-runtime` | Bedrock model invocation | Interface |
 | `com.amazonaws.{region}.bedrock-agent-runtime` | AgentCore Runtime | Interface |
+| `com.amazonaws.{region}.bedrock-agentcore` | AgentCore Identity (Token Vault) | Interface |
+| `com.amazonaws.{region}.bedrock-agentcore.gateway` | AgentCore Gateway (MCP tools) | Interface |
 | `com.amazonaws.{region}.ssm` | SSM Parameter Store | Interface |
 | `com.amazonaws.{region}.secretsmanager` | Secrets Manager | Interface |
 | `com.amazonaws.{region}.logs` | CloudWatch Logs | Interface |
@@ -109,9 +126,11 @@ All interface endpoints must have private DNS enabled and must be associated wit
 - Subnets should be in at least two Availability Zones for high availability
 - Subnets must have sufficient available IP addresses for the runtime ENIs
 
-#### NAT Gateway Requirement
+#### NAT Gateway
 
-A NAT Gateway is required for VPC mode. The agent authenticates with Cognito using the OAuth2 client credentials flow, which calls the Cognito hosted UI token endpoint over HTTPS. This endpoint has no VPC endpoint — it can only be reached over the internet. A NAT Gateway in a public subnet with a `0.0.0.0/0` route from your private subnets provides this outbound IPv4 access. All other AWS service traffic (Bedrock, SSM, etc.) stays internal via VPC endpoints.
+A NAT Gateway is **not required** for VPC mode. The agent authenticates with the AgentCore Gateway using the Token Vault OAuth2 Credential Provider, which retrieves tokens via the AgentCore Identity API. This API is reachable through the `bedrock-agent-runtime` VPC endpoint, so no outbound internet access is needed. All AWS service traffic (Bedrock, SSM, Secrets Manager, etc.) stays internal via VPC endpoints.
+
+> **Note:** If you add custom tools or integrations that make outbound internet calls, you will need a NAT Gateway in a public subnet with a `0.0.0.0/0` route from your private subnets.
 
 #### Security Group Configuration
 
