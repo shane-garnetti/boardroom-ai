@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ChunkParser } from "../types";
+import type { ChunkParser } from "../types"
 
 /**
  * Parses SSE chunks from LangGraph agents (stream_mode="messages").
@@ -20,35 +20,32 @@ import type { ChunkParser } from "../types";
  */
 
 // Track current tool_use_id across chunks (deltas don't carry the id)
-let currentToolUseId = "";
+let currentToolUseId = ""
 
 export const parseLanggraphChunk: ChunkParser = (line, callback) => {
-  if (!line.startsWith("data: ")) return;
+  if (!line.startsWith("data: ")) return
 
-  const data = line.substring(6).trim();
-  if (!data) return;
+  const data = line.substring(6).trim()
+  if (!data) return
 
   try {
-    const json = JSON.parse(data);
+    const json = JSON.parse(data)
 
     // ToolMessage — tool result
     if (json.type === "tool") {
       callback({
         type: "tool_result",
         toolUseId: json.tool_call_id,
-        result:
-          typeof json.content === "string"
-            ? json.content
-            : JSON.stringify(json.content),
-      });
-      return;
+        result: typeof json.content === "string" ? json.content : JSON.stringify(json.content),
+      })
+      return
     }
 
     // AIMessageChunk
     if (json.type === "AIMessageChunk") {
       // Content as plain string (when model responds without tool use)
       if (typeof json.content === "string" && json.content) {
-        callback({ type: "text", content: json.content });
+        callback({ type: "text", content: json.content })
       }
 
       // Content as array of blocks (when model uses tools)
@@ -56,17 +53,17 @@ export const parseLanggraphChunk: ChunkParser = (line, callback) => {
         for (const block of json.content) {
           // Text token
           if (block.type === "text" && block.text) {
-            callback({ type: "text", content: block.text });
+            callback({ type: "text", content: block.text })
           }
 
           // Tool use start — has id and name
           if (block.type === "tool_use" && block.id && block.name) {
-            currentToolUseId = block.id;
+            currentToolUseId = block.id
             callback({
               type: "tool_use_start",
               toolUseId: block.id,
               name: block.name,
-            });
+            })
           }
 
           // Tool input streaming — has partial_json
@@ -79,18 +76,18 @@ export const parseLanggraphChunk: ChunkParser = (line, callback) => {
               type: "tool_use_delta",
               toolUseId: currentToolUseId,
               input: block.partial_json,
-            });
+            })
           }
         }
       }
 
       // Stop reason
-      const stopReason = json.response_metadata?.stop_reason;
+      const stopReason = json.response_metadata?.stop_reason
       if (stopReason) {
-        callback({ type: "result", stopReason });
+        callback({ type: "result", stopReason })
       }
     }
   } catch {
-    console.debug("Failed to parse langgraph event:", data);
+    console.debug("Failed to parse langgraph event:", data)
   }
-};
+}

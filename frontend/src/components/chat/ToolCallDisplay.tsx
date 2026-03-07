@@ -1,22 +1,11 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import {
-  Wrench,
-  Loader2,
-  CheckCircle2,
-  ChevronRight,
-  ChevronDown,
-} from "lucide-react";
-import type { ToolRenderProps } from "@/hooks/useToolRenderer";
+import { useState } from "react"
+import { Wrench, Loader2, CheckCircle2, ChevronRight, ChevronDown } from "lucide-react"
+import type { ToolRenderProps } from "@/hooks/useToolRenderer"
 
-export function ToolCallDisplay({
-  name,
-  args,
-  status,
-  result,
-}: ToolRenderProps) {
-  const [expanded, setExpanded] = useState(false);
+export function ToolCallDisplay({ name, args, status, result }: ToolRenderProps) {
+  const [expanded, setExpanded] = useState(false)
 
   return (
     <div className="my-1 text-sm">
@@ -37,9 +26,7 @@ export function ToolCallDisplay({
         {status === "executing" && (
           <Loader2 size={12} className="animate-spin text-amber-500 ml-auto" />
         )}
-        {status === "complete" && (
-          <CheckCircle2 size={12} className="text-green-500 ml-auto" />
-        )}
+        {status === "complete" && <CheckCircle2 size={12} className="text-green-500 ml-auto" />}
       </button>
 
       {expanded && (
@@ -63,5 +50,5 @@ export function ToolCallDisplay({
         </div>
       )}
     </div>
-  );
+  )
 }
