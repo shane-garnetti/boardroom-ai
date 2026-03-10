@@ -54,6 +54,10 @@ backend_network_mode = "PUBLIC"
 #
 # Security groups are optional. If omitted, a default security group is created
 # with HTTPS (443) self-referencing ingress and all-traffic egress.
+#
+# IMPORTANT: AgentCore Runtime is only available in specific Availability Zones
+# per region. Ensure your subnets are in supported AZs. See:
+# https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-vpc.html#agentcore-supported-azs
 
 # backend_vpc_id                 = "vpc-xxxxxxxxxxxxxxxxx"
 # backend_vpc_subnet_ids         = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"]
