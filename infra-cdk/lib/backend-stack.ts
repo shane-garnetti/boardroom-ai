@@ -113,6 +113,13 @@ export class BackendStack extends cdk.NestedStack {
     let agentRuntimeArtifact: agentcore.AgentRuntimeArtifact
     let zipPackagerResource: cdk.CustomResource | undefined
 
+    if (deploymentType === "zip" && (pattern === "claude-agent-sdk-single-agent" || pattern === "claude-agent-sdk-multi-agent")) {
+      throw new Error(
+        "claude-agent-sdk patterns require Docker deployment (deployment_type: docker) " +
+        "because they need Node.js and the claude-code CLI installed at build time."
+      )
+    }
+
     if (deploymentType === "zip") {
       // ZIP DEPLOYMENT: Use Lambda to package and upload to S3 (no Docker required)
       const repoRoot = path.resolve(__dirname, "..", "..")
@@ -332,6 +339,11 @@ export class BackendStack extends cdk.NestedStack {
       MEMORY_ID: memoryId,
       STACK_NAME: config.stack_name_base,
       GATEWAY_CREDENTIAL_PROVIDER_NAME: `${config.stack_name_base}-runtime-gateway-auth`, // Used by @requires_access_token decorator to look up the correct provider
+    }
+
+    // Add claude-agent-sdk specific environment variable
+    if (pattern === "claude-agent-sdk-single-agent" || pattern === "claude-agent-sdk-multi-agent") {
+      envVars["CLAUDE_CODE_USE_BEDROCK"] = "1"
     }
 
     // Create the runtime using L2 construct
