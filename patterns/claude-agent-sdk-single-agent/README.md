@@ -68,15 +68,19 @@ The Claude Agent SDK includes built-in tools from claude-code (Bash, Read, Write
 | `Grep` | Use Code Interpreter for content searching |
 | `EnterWorktree` | Not applicable in this deployment context |
 | `Skill` | Not applicable in this deployment context |
+| `TodoWrite` | Not applicable in this deployment context |
+| `CronCreate` | Not applicable in this deployment context |
+| `CronDelete` | Not applicable in this deployment context |
+| `CronList` | Not applicable in this deployment context |
 
 **To re-enable a built-in tool**, remove it from the `disallowed_tools` list in the `_build_options()` function in `agent.py`:
 
 ```python
 # Before: tool is disabled
-disallowed_tools=["Bash", "Write", "NotebookEdit", "Edit", "WebFetch", "Read", "Glob", "Grep", "EnterWorktree", "Skill"],
+disallowed_tools=["Bash", "Write", "NotebookEdit", "Edit", "WebFetch", "Read", "Glob", "Grep", "EnterWorktree", "Skill", "TodoWrite", "CronCreate", "CronDelete", "CronList"],
 
 # After: Bash re-enabled
-disallowed_tools=["Write", "NotebookEdit", "Edit", "WebFetch", "Read", "Glob", "Grep", "EnterWorktree", "Skill"],
+disallowed_tools=["Write", "NotebookEdit", "Edit", "WebFetch", "Read", "Glob", "Grep", "EnterWorktree", "Skill", "TodoWrite", "CronCreate", "CronDelete", "CronList"],
 ```
 
 If you also want the agent to proactively use the re-enabled tool, add it to the `allowed_tools` list and mention it in the `system_prompt`.
