@@ -22,8 +22,8 @@ locals {
   # Stack name for resource naming (underscores for some AWS resources)
   stack_name_underscore = replace(var.stack_name_base, "-", "_")
 
-  # Agent name (matches CDK CfnParameter default in backend-stack.ts)
-  agent_name = "StrandsAgent"
+  # Agent name used in runtime naming
+  agent_name = "FASTAgent"
 
   # Runtime name (underscores required by AgentCore)
   runtime_name = "${local.stack_name_underscore}_${local.agent_name}"
