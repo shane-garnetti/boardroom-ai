@@ -47,7 +47,7 @@ export function DashboardHeader({ onReset, canReset, agentStatuses }: DashboardH
       <div className="flex items-center gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Startup Command Center</h1>
-          <p className="text-xs text-gray-500">AI-Powered Advisory Team</p>
+          <p className="text-xs text-gray-500">Powered by AWS Bedrock AgentCore.</p>
         </div>
         <div className="hidden md:flex items-center gap-3 ml-4 pl-4 border-l">
           {SPECIALIST_AGENTS.map(id => (

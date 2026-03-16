@@ -29,6 +29,7 @@ const initialPanelState = (): Record<AgentId, AgentPanelState> => ({
   "marketing-director": { status: "idle", content: "", prompt: "" },
   "cfo": { status: "idle", content: "", prompt: "" },
   "cto": { status: "idle", content: "", prompt: "" },
+  "ciso": { status: "idle", content: "", prompt: "" },
 })
 
 export default function DashboardInterface() {
@@ -98,6 +99,7 @@ export default function DashboardInterface() {
       "marketing-director": { status: "idle", content: "", prompt: "" },
       "cfo": { status: "idle", content: "", prompt: "" },
       "cto": { status: "idle", content: "", prompt: "" },
+      "ciso": { status: "idle", content: "", prompt: "" },
     }))
 
     // Create placeholder for assistant response
@@ -459,7 +461,7 @@ export default function DashboardInterface() {
           </div>
 
           {/* Right: Specialist panels */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 p-3 min-h-0 overflow-hidden">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 min-h-0 overflow-hidden">
             {SPECIALIST_AGENTS.map(id => (
               <AgentPanel
                 key={id}

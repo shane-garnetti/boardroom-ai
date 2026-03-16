@@ -70,6 +70,7 @@ const sendButtonColor: Record<AgentId, string> = {
   "marketing-director": "bg-emerald-600 hover:bg-emerald-700",
   "cfo": "bg-amber-600 hover:bg-amber-700",
   "cto": "bg-sky-600 hover:bg-sky-700",
+  "ciso": "bg-rose-600 hover:bg-rose-700",
 }
 
 export function AgentPanel({ agentId, status, content, prompt, onFollowUp }: AgentPanelProps) {

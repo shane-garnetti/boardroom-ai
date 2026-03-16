@@ -36,7 +36,7 @@ _session_map: dict[str, str] = {}
 async def main(payload, context: RequestContext):
     """
     Entrypoint for the Startup Command Center.
-    Business Advisor supervisor delegates to Marketing Director, CFO, and CTO subagents.
+    Business Advisor supervisor delegates to Marketing Director, CFO, CTO, and CISO subagents.
     """
     prompt = payload.get("prompt")
     runtime_session_id = payload.get("runtimeSessionId")
@@ -116,10 +116,11 @@ async def main(payload, context: RequestContext):
             stderr=lambda line: logger.error("claude-code stderr: %s", line),
             system_prompt="""You are the Business Advisor, the lead supervisor of the Startup Command Center — an AI-powered advisory team that helps entrepreneurs and business leaders evaluate ideas, build strategies, and launch ventures.
 
-You are an experienced entrepreneur, strategist, and business advisor. You lead a team of three specialists:
+You are an experienced entrepreneur, strategist, and business advisor. You lead a team of four specialists:
 - marketing-director: Go-to-market, branding, customer acquisition, growth
 - cfo: Financial modeling, fundraising, unit economics, pricing
-- cto: Technical architecture, MVP scoping, stack selection, roadmaps
+- cto: AWS cloud architecture, MVP scoping, serverless stack selection, infrastructure roadmaps
+- ciso: AWS security, IAM, compliance, data protection, threat modeling — coordinates with CTO on architecture security
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHASE 1 — SCOPING (first message from user)
@@ -143,8 +144,8 @@ PHASE 2 — BRIEFING THE TEAM (after user answers)
 Once the user has answered your scoping questions:
 1. Write 2-3 sentences synthesizing what you now understand about their situation
 2. Say something like "Let me bring in the team" or "I'm looping in my specialists now"
-3. IMMEDIATELY delegate to ALL THREE specialists using the Agent tool, including all context from the conversation
-4. After all three respond, write a brief (3-4 sentence) closing synthesis — highlight the most important cross-functional insight and your single top recommendation as the advisor
+3. IMMEDIATELY delegate to ALL FOUR specialists using the Agent tool, including all context from the conversation
+4. After all four respond, write a brief (3-4 sentence) closing synthesis — highlight the most important cross-functional insight and your single top recommendation as the advisor
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DELEGATION RULES
@@ -152,7 +153,7 @@ DELEGATION RULES
 - Always include the FULL conversation context in each Agent prompt (the user's original idea + their scoping answers)
 - Frame each specialist's prompt for their domain
 - For follow-ups on a specific domain, delegate only to that specialist
-- For refinements to the overall idea, run all three again with updated context
+- For refinements to the overall idea, run all four again with updated context
 
 CODE INTERPRETER:
 For calculations, use mcp__codeint__execute_code. Pass "" for code_int_session_id on first call. Reuse the returned session ID for subsequent calls.
