@@ -272,6 +272,57 @@ export default function DashboardInterface() {
     sendMessage(input)
   }
 
+  /**
+   * Re-invoke ONLY the target specialist with follow-up context.
+   * Preserves all other panels; only updates the target agentId panel.
+   */
+  const sendFollowUp = async (agentId: AgentId, answer: string) => {
+    if (!client || isLoading) return
+    setError(null)
+    setIsLoading(true)
+
+    const agentName = AGENTS[agentId].name
+
+    // Reset only the target panel to "thinking"
+    setPanels(prev => ({
+      ...prev,
+      [agentId]: { status: "thinking", content: "", prompt: "" },
+    }))
+
+    try {
+      const accessToken = auth.user?.access_token
+      if (!accessToken) throw new Error("Authentication required. Please log in again.")
+
+      await client.invoke(
+        `[Directed follow-up for ${agentName} only] The user provided additional context in response to ${agentName}'s follow-up question: "${answer}". Please re-invoke ONLY the ${agentName} specialist with this new information. Do not re-invoke any other specialists.`,
+        sessionId,
+        accessToken,
+        event => {
+          if (event.type === "subagent_result") {
+            const resultId = event.agent as AgentId
+            if (resultId === agentId && AGENTS[resultId]) {
+              setPanels(prev => ({
+                ...prev,
+                [resultId]: { ...prev[resultId], status: "responding", content: event.content },
+              }))
+            }
+          }
+        }
+      )
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error"
+      setError(`Follow-up failed: ${errorMessage}`)
+    } finally {
+      setIsLoading(false)
+      setPanels(prev => {
+        if (prev[agentId].status === "thinking") {
+          return { ...prev, [agentId]: { ...prev[agentId], status: "idle" } }
+        }
+        return prev
+      })
+    }
+  }
+
   const handleReset = () => {
     setMessages([])
     setInput("")
@@ -416,12 +467,7 @@ export default function DashboardInterface() {
                 status={panels[id].status}
                 content={panels[id].content}
                 prompt={panels[id].prompt}
-                onFollowUp={answer => {
-                  const agentName = AGENTS[id].name
-                  sendMessage(
-                    `[Follow-up for ${agentName}] The user provided this additional context in response to your question: "${answer}". Please re-brief only the ${agentName} with this new information and get an updated response from them only.`
-                  )
-                }}
+                onFollowUp={answer => sendFollowUp(id, answer)}
               />
             ))}
           </div>
