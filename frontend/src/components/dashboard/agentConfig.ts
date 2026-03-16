@@ -45,8 +45,8 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   "cto": {
     id: "cto",
     name: "CTO",
-    title: "Technology & Architecture",
-    description: "Tech stack, MVP scope, development roadmap, and infrastructure",
+    title: "AWS Solutions Architect",
+    description: "AWS stack, serverless architecture, MVP scope, and cloud infrastructure",
     color: "border-sky-500",
     bgColor: "bg-sky-50",
     textColor: "text-sky-700",

@@ -416,6 +416,12 @@ export default function DashboardInterface() {
                 status={panels[id].status}
                 content={panels[id].content}
                 prompt={panels[id].prompt}
+                onFollowUp={answer => {
+                  const agentName = AGENTS[id].name
+                  sendMessage(
+                    `[Follow-up for ${agentName}] The user provided this additional context in response to your question: "${answer}". Please re-brief only the ${agentName} with this new information and get an updated response from them only.`
+                  )
+                }}
               />
             ))}
           </div>
