@@ -94,8 +94,10 @@ async def main(payload, context: RequestContext):
         allowed_tools.append("mcp__gateway__*")
         logger.info("Gateway MCP server configured: %s", gateway_url)
 
-    # Add Task tool for subagent spawning
+    # Add Agent/Task tool for subagent spawning
+    # Note: claude-code CLI exposes the subagent tool as "Agent" (not "Task") in some versions
     allowed_tools.append("Task")
+    allowed_tools.append("Agent")
 
     # Build subagent definitions
     subagents = get_subagent_definitions(mcp_servers)
@@ -112,63 +114,94 @@ async def main(payload, context: RequestContext):
             thinking={"type": "adaptive"},
             cli_path="/usr/bin/claude",
             stderr=lambda line: logger.error("claude-code stderr: %s", line),
-            system_prompt="""You are the Business Advisor, the lead supervisor of the Startup Command Center -- an AI-powered advisory team that helps entrepreneurs and business leaders evaluate ideas, build strategies, and launch ventures.
+            system_prompt="""You are the Business Advisor, the lead supervisor of the Startup Command Center — an AI-powered advisory team that helps entrepreneurs and business leaders evaluate ideas, build strategies, and launch ventures.
 
-You are an experienced entrepreneur, strategist, and business advisor with deep knowledge across all business domains. You lead a team of three specialist agents:
+You are an experienced entrepreneur, strategist, and business advisor. You lead a team of three specialists:
+- marketing-director: Go-to-market, branding, customer acquisition, growth
+- cfo: Financial modeling, fundraising, unit economics, pricing
+- cto: Technical architecture, MVP scoping, stack selection, roadmaps
 
-SPECIALIST AGENTS (delegate via Task tool):
-- marketing-director: Expert in go-to-market strategy, branding, customer acquisition, content marketing, growth hacking, and competitive positioning. Delegate marketing analysis here.
-- cfo: Expert in financial modeling, fundraising, unit economics, revenue models, cash flow, and financial strategy. Delegate financial analysis here.
-- cto: Expert in technical architecture, stack selection, MVP scoping, engineering roadmaps, and build-vs-buy decisions. Delegate technical analysis here.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1 — SCOPING (first message from user)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+When a user introduces a NEW business idea or challenge for the first time, DO NOT delegate to specialists yet.
 
-YOUR WORKFLOW:
-1. When a user describes a business idea, question, or task:
-   a. First, provide a brief strategic overview (2-3 sentences) assessing the opportunity
-   b. Then ALWAYS delegate to ALL THREE specialists using the Task tool -- send each one the full context of the user's request plus domain-specific framing
-   c. After all specialists respond, provide a synthesized executive summary with your top 3-5 actionable recommendations
+Instead:
+1. Open with a single sentence acknowledging the idea and your initial impression (enthusiastic, direct, human)
+2. Ask exactly 4-5 targeted scoping questions to understand:
+   - Stage/traction (pre-idea, MVP, launched, scaling?)
+   - Target customer and market segment
+   - Revenue model or monetization thinking
+   - Team/founder background relevant to this
+   - One specific area they most want help with (marketing, finance, or tech)
 
-2. IMPORTANT DELEGATION RULES:
-   - Always delegate to ALL THREE specialists for any business idea or strategy question
-   - Include the full user request in each Task prompt so specialists have complete context
-   - Frame the prompt for each specialist's domain (e.g., tell the CFO to focus on financials)
-   - You may delegate to a single specialist only if the user explicitly asks about one domain
+Keep this conversational — like you're sitting across the table from them in a first advisory meeting. Do NOT bullet-point the questions robotically. Weave them naturally.
 
-3. For follow-up questions:
-   - If the user asks about a specific domain, delegate to the relevant specialist(s)
-   - If the user refines their idea, delegate to all three again with the updated context
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 2 — BRIEFING THE TEAM (after user answers)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Once the user has answered your scoping questions:
+1. Write 2-3 sentences synthesizing what you now understand about their situation
+2. Say something like "Let me bring in the team" or "I'm looping in my specialists now"
+3. IMMEDIATELY delegate to ALL THREE specialists using the Agent tool, including all context from the conversation
+4. After all three respond, write a brief (3-4 sentence) closing synthesis — highlight the most important cross-functional insight and your single top recommendation as the advisor
 
-CODE INTERPRETER SESSION:
-If you need to run calculations or data analysis, use mcp__codeint__execute_code.
-For the first call, pass an empty string "" for code_int_session_id. Use the returned session ID for subsequent calls. NEVER fabricate session IDs.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DELEGATION RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Always include the FULL conversation context in each Agent prompt (the user's original idea + their scoping answers)
+- Frame each specialist's prompt for their domain
+- For follow-ups on a specific domain, delegate only to that specialist
+- For refinements to the overall idea, run all three again with updated context
 
-Your tone should be confident, strategic, and executive-level. Think like a seasoned startup advisor who has seen hundreds of ventures.""",
+CODE INTERPRETER:
+For calculations, use mcp__codeint__execute_code. Pass "" for code_int_session_id on first call. Reuse the returned session ID for subsequent calls.
+
+Your tone: warm, direct, confident. You're a trusted advisor who has seen hundreds of ventures — not a chatbot filling out a template.""",
         )
 
     async def _process_messages(options: ClaudeAgentOptions):
         """Run the agent and yield response events, including subagent attribution."""
-        # Track Task tool invocations to attribute subagent results
-        current_task_agent = None
-        current_task_tool_id = None
+        # Map tool_id -> agent_name to support parallel Task tool calls
+        task_agent_map: dict[str, str] = {}
 
         async with ClaudeSDKClient(options=options) as client:
             await client.query(prompt)
             async for msg in client.receive_response():
+                logger.info("MSG TYPE: %s", type(msg).__name__)
                 if isinstance(msg, SystemMessage):
                     if msg.subtype == "init":
                         logger.info("Claude session init: %s", msg.data.get("session_id"))
                 elif isinstance(msg, AssistantMessage):
                     for block in msg.content:
                         if isinstance(block, ToolUseBlock):
-                            logger.info("TOOL USE: %s", block.name)
+                            raw_id = getattr(block, "id", None)
+                            tool_key = f"tool-{raw_id}" if raw_id else f"tool-{id(block)}"
+                            logger.info("TOOL USE: %s (key=%s) input=%s", block.name, tool_key, json.dumps(block.input) if isinstance(block.input, dict) else str(block.input))
 
-                            # Track Task tool calls for subagent attribution
-                            if block.name == "Task" and isinstance(block.input, dict):
-                                current_task_agent = block.input.get("agent")
-                                current_task_tool_id = f"tool-{block.id}" if hasattr(block, "id") else f"tool-{hash(block.name)}"
-                                # Emit subagent_start event for frontend routing
+                            # Track Agent/Task tool calls by tool ID for parallel support
+                            # claude-code CLI uses "Agent" tool name (not "Task") in some versions
+                            if block.name in ("Task", "Agent") and isinstance(block.input, dict):
+                                # Try common field names for the agent identifier
+                                known_agents = set(subagents.keys())
+                                agent_name = block.input.get("agent") or block.input.get("name")
+                                # Fallback: scan all string values for a known agent key
+                                if not agent_name or agent_name not in known_agents:
+                                    for v in block.input.values():
+                                        if isinstance(v, str) and v in known_agents:
+                                            agent_name = v
+                                            break
+                                # Last resort: use first string value
+                                if not agent_name:
+                                    for v in block.input.values():
+                                        if isinstance(v, str):
+                                            agent_name = v
+                                            break
+                                task_agent_map[tool_key] = agent_name
+                                logger.info("Registered subagent: %s -> %s", tool_key, agent_name)
                                 yield {
                                     "subagent_start": {
-                                        "agent": current_task_agent,
+                                        "agent": agent_name,
                                         "prompt": block.input.get("prompt", ""),
                                     }
                                 }
@@ -177,31 +210,52 @@ Your tone should be confident, strategic, and executive-level. Think like a seas
                                 "current_tool_use": {
                                     "name": block.name,
                                     "input": block.input,
-                                    "toolUseId": f"tool-{block.id}" if hasattr(block, "id") else f"tool-{hash(block.name)}",
+                                    "toolUseId": tool_key,
                                 }
                             }
                         elif isinstance(block, TextBlock):
-                            logger.info("Agent response: %s", block.text)
+                            logger.info("Agent response (len=%d)", len(block.text))
                             agent_responses.append(block.text)
                             yield {"data": block.text}
                 elif isinstance(msg, UserMessage):
                     for block in msg.content:
+                        logger.info("UserMessage block type: %s", type(block).__name__)
                         if isinstance(block, ToolResultBlock):
-                            if block.content and len(block.content) > 0:
-                                text_content = ""
-                                if isinstance(block.content[0], dict):
-                                    text_content = block.content[0].get("text", "")
+                            # Extract text content — handles str, list[dict], list[TextBlock]
+                            raw_content = block.content
+                            text_content = ""
+                            if isinstance(raw_content, str):
+                                text_content = raw_content
+                            elif isinstance(raw_content, list) and len(raw_content) > 0:
+                                first = raw_content[0]
+                                if isinstance(first, dict):
+                                    text_content = first.get("text", "")
+                                elif isinstance(first, TextBlock):
+                                    text_content = first.text
+                                elif hasattr(first, "text"):
+                                    text_content = first.text
+                                elif isinstance(first, str):
+                                    text_content = first
 
-                                # Emit subagent_result for Task tool results
-                                if current_task_agent and text_content:
-                                    yield {
-                                        "subagent_result": {
-                                            "agent": current_task_agent,
-                                            "content": text_content,
-                                        }
+                            # Match result to agent by tool ID
+                            raw_result_id = getattr(block, "tool_use_id", None)
+                            result_key = f"tool-{raw_result_id}" if raw_result_id else None
+                            agent_name = task_agent_map.get(result_key) if result_key else None
+
+                            logger.info(
+                                "ToolResultBlock: result_key=%s, agent=%s, content_type=%s, content_len=%d, map=%s",
+                                result_key, agent_name, type(raw_content).__name__, len(text_content), list(task_agent_map.keys())
+                            )
+
+                            # Emit subagent_result for Task tool results
+                            if agent_name and text_content:
+                                yield {
+                                    "subagent_result": {
+                                        "agent": agent_name,
+                                        "content": text_content,
                                     }
-                                    current_task_agent = None
-                                    current_task_tool_id = None
+                                }
+                                task_agent_map.pop(result_key, None)
 
                                 try:
                                     result_data = json.loads(text_content)
