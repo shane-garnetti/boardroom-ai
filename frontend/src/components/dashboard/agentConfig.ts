@@ -34,7 +34,7 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   },
   "cfo": {
     id: "cfo",
-    name: "CFO",
+    name: "Chief Financial Officer",
     title: "Finance & Fundraising",
     description: "Financial modeling, unit economics, pricing, and fundraising strategy",
     color: "border-amber-500",
@@ -44,7 +44,7 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   },
   "cto": {
     id: "cto",
-    name: "CTO",
+    name: "Chief Technology Officer",
     title: "AWS Solutions Architect",
     description: "AWS stack, serverless architecture, MVP scope, and cloud infrastructure",
     color: "border-sky-500",
@@ -54,8 +54,8 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   },
   "ciso": {
     id: "ciso",
-    name: "CISO",
-    title: "Chief Information Security Officer",
+    name: "Chief Information Security Officer",
+    title: "Security & Compliance",
     description: "AWS security best practices, compliance, IAM, threat modeling, and data protection",
     color: "border-rose-500",
     bgColor: "bg-rose-50",

@@ -359,7 +359,7 @@ export default function DashboardInterface() {
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-800 mb-2">Startup Command Center</h2>
-            <p className="text-gray-500 text-lg mb-1">Describe your business idea and get analysis from our AI advisory team</p>
+            <p className="text-gray-500 text-lg mb-1">Powered by AWS Bedrock AgentCore.</p>
             <div className="flex justify-center gap-4 mt-4">
               {SPECIALIST_AGENTS.map(id => {
                 const agent = AGENTS[id]
