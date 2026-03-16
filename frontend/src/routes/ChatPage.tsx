@@ -2,7 +2,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import ChatInterface from "@/components/chat/ChatInterface"
+import { DashboardInterface } from "@/components/dashboard"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
 import { GlobalContextProvider } from "@/app/context/GlobalContext"
@@ -22,7 +22,7 @@ export default function ChatPage() {
   return (
     <GlobalContextProvider>
       <div className="relative h-screen">
-        <ChatInterface />
+        <DashboardInterface />
       </div>
     </GlobalContextProvider>
   )

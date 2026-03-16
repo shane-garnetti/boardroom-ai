@@ -24,6 +24,8 @@ export type StreamEvent =
   | { type: "message"; role: string; content: unknown[] }
   | { type: "result"; stopReason: string }
   | { type: "lifecycle"; event: string }
+  | { type: "subagent_start"; agent: string; prompt: string }
+  | { type: "subagent_result"; agent: string; content: string }
 
 /** Callback invoked with each stream event */
 export type StreamCallback = (event: StreamEvent) => void

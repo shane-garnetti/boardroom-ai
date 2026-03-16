@@ -5,12 +5,14 @@ import type { ChunkParser } from "../types"
 
 /**
  * Parses SSE chunks from Claude Agent SDK agents.
- * Emits typed StreamEvents for text, tool use, and session lifecycle.
+ * Emits typed StreamEvents for text, tool use, subagent delegation, and session lifecycle.
  *
  * Event shapes from the agent:
- * - {"data": "text"}              → text content
- * - {"current_tool_use": {...}}   → tool use (complete per event)
- * - {"claude_session_id": "..."}  → session ID for resumption
+ * - {"data": "text"}                          → text content
+ * - {"current_tool_use": {...}}               → tool use (complete per event)
+ * - {"subagent_start": {agent, prompt}}       → subagent delegation started
+ * - {"subagent_result": {agent, content}}     → subagent response received
+ * - {"claude_session_id": "..."}              → session ID for resumption
  */
 export const parseClaudeAgentSdkChunk: ChunkParser = (line, callback) => {
   if (!line.startsWith("data: ")) return
@@ -27,9 +29,35 @@ export const parseClaudeAgentSdkChunk: ChunkParser = (line, callback) => {
       return
     }
 
+    // Subagent start — a specialist agent has been delegated to
+    if (json.subagent_start) {
+      callback({
+        type: "subagent_start",
+        agent: json.subagent_start.agent || "unknown",
+        prompt: json.subagent_start.prompt || "",
+      })
+      return
+    }
+
+    // Subagent result — a specialist agent has returned its response
+    if (json.subagent_result) {
+      callback({
+        type: "subagent_result",
+        agent: json.subagent_result.agent || "unknown",
+        content: json.subagent_result.content || "",
+      })
+      return
+    }
+
     // Tool use — claude-agent-sdk sends complete tool info per event
     if (json.current_tool_use) {
       const tool = json.current_tool_use
+
+      // Skip emitting tool_use events for Task tool — handled via subagent events
+      if (tool.name === "Task") {
+        return
+      }
+
       callback({
         type: "tool_use_start",
         toolUseId: tool.toolUseId,
