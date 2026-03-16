@@ -103,7 +103,7 @@ export function AgentPanel({ agentId, status, content, prompt, onFollowUp }: Age
   }
 
   return (
-    <div className={`flex flex-col h-full rounded-lg border-2 ${config.color} bg-zinc-900 overflow-hidden shadow-sm`}>
+    <div className={`flex flex-col h-full rounded-lg border-2 ${config.color} bg-white overflow-hidden shadow-sm`}>
       {/* Header */}
       <div className={`flex items-center justify-between px-4 py-3 ${config.bgColor} border-b`}>
         <div className="flex items-center gap-3">
@@ -112,7 +112,7 @@ export function AgentPanel({ agentId, status, content, prompt, onFollowUp }: Age
           </div>
           <div>
             <h3 className={`font-semibold text-sm ${config.textColor}`}>{config.name}</h3>
-            <p className="text-xs text-gray-400">{config.title}</p>
+            <p className="text-xs text-gray-500">{config.title}</p>
           </div>
         </div>
         <StatusBadge status={status} />
@@ -125,7 +125,7 @@ export function AgentPanel({ agentId, status, content, prompt, onFollowUp }: Age
             <div className={`w-10 h-10 rounded-full ${config.bgColor} flex items-center justify-center`}>
               <span className={`text-lg font-bold ${config.textColor}`}>{config.iconLabel}</span>
             </div>
-            <p className="text-xs text-gray-500 text-center italic">
+            <p className="text-xs text-gray-400 text-center italic">
               Waiting to be briefed...
             </p>
           </div>
@@ -136,7 +136,7 @@ export function AgentPanel({ agentId, status, content, prompt, onFollowUp }: Age
             {prompt && (
               <div className={`mb-3 p-3 ${config.bgColor} rounded-md border ${config.color} opacity-80`}>
                 <p className={`text-xs font-semibold ${config.textColor} mb-1`}>📋 Briefing received:</p>
-                <p className="text-xs text-gray-300 line-clamp-4 italic">{prompt}</p>
+                <p className="text-xs text-gray-600 line-clamp-4 italic">{prompt}</p>
               </div>
             )}
             <ThinkingAnimation />
@@ -154,7 +154,7 @@ export function AgentPanel({ agentId, status, content, prompt, onFollowUp }: Age
             </div>
 
             {/* Main response */}
-            <div className="prose prose-sm max-w-none text-gray-100 leading-relaxed prose-invert">
+            <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed">
               <MarkdownRenderer content={body} />
             </div>
 
@@ -164,14 +164,14 @@ export function AgentPanel({ agentId, status, content, prompt, onFollowUp }: Age
                 <p className={`text-xs font-semibold ${config.textColor} mb-1.5 flex items-center gap-1`}>
                   💬 One quick question for you:
                 </p>
-                <p className="text-sm text-gray-200 mb-3">{question}</p>
+                <p className="text-sm text-gray-700 mb-3">{question}</p>
                 <form onSubmit={handleFollowUpSubmit} className="flex gap-2">
                   <input
                     type="text"
                     value={followUpAnswer}
                     onChange={e => setFollowUpAnswer(e.target.value)}
                     placeholder="Your answer..."
-                    className={`flex-1 text-sm px-3 py-1.5 rounded-md border border-zinc-600 bg-zinc-800 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-1`}
+                    className="flex-1 text-sm px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1"
                     style={{ minWidth: 0 }}
                   />
                   <button
