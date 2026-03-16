@@ -636,12 +636,8 @@ export class BackendStack extends cdk.NestedStack {
     )
 
     // ─── Documents API routes ─────────────────────────────────────────────────
+    // Note: CORS OPTIONS is handled by the API-level defaultCorsPreflightOptions — no need to call addCorsPreflight here.
     const documentsResource = api.root.addResource("documents")
-    documentsResource.addCorsPreflight({
-      allowOrigins: [frontendUrl, "http://localhost:3000"],
-      allowMethods: ["POST", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization"],
-    })
 
     const presignResource = documentsResource.addResource("presign")
     presignResource.addMethod(
