@@ -35,9 +35,8 @@ _session_map: dict[str, str] = {}
 @app.entrypoint
 async def main(payload, context: RequestContext):
     """
-    Entrypoint for the Claude Agent SDK pattern.
-    Uses ClaudeSDKClient for streaming with Code Interpreter and Gateway tools.
-    User identity is extracted securely from the validated JWT token.
+    Entrypoint for the Startup Command Center.
+    Business Advisor supervisor delegates to Marketing Director, CFO, and CTO subagents.
     """
     prompt = payload.get("prompt")
     runtime_session_id = payload.get("runtimeSessionId")
@@ -113,32 +112,44 @@ async def main(payload, context: RequestContext):
             thinking={"type": "adaptive"},
             cli_path="/usr/bin/claude",
             stderr=lambda line: logger.error("claude-code stderr: %s", line),
-            system_prompt=f"""You are an AI assistant that helps users with code execution and analysis tasks.
+            system_prompt="""You are the Business Advisor, the lead supervisor of the Startup Command Center -- an AI-powered advisory team that helps entrepreneurs and business leaders evaluate ideas, build strategies, and launch ventures.
 
-CRITICAL RULES:
-1. You MUST use mcp__codeint__execute_code for ALL Python code execution tasks.
-2. You can use mcp__codeint__execute_command to execute bash commands.
-3. Use gateway tools (mcp__gateway__*) for accessing tools provided via the Gateway.
-4. Use the tools without asking for permission.
-5. CODE INTERPRETER SESSION: For the first Code Interpreter call, pass an empty string "" for code_int_session_id. The tool will return a valid session ID in its response. Use that EXACT returned session ID for all subsequent Code Interpreter calls in this conversation. NEVER make up or generate your own session IDs.
+You are an experienced entrepreneur, strategist, and business advisor with deep knowledge across all business domains. You lead a team of three specialist agents:
 
-SUBAGENT DELEGATION:
-You have specialized subagents available via the Task tool:
-- code-analyst: For analyzing code output, debugging errors, explaining results. Has Code Interpreter and Gateway tools.
-When delegating, include all relevant context in the Task prompt.
+SPECIALIST AGENTS (delegate via Task tool):
+- marketing-director: Expert in go-to-market strategy, branding, customer acquisition, content marketing, growth hacking, and competitive positioning. Delegate marketing analysis here.
+- cfo: Expert in financial modeling, fundraising, unit economics, revenue models, cash flow, and financial strategy. Delegate financial analysis here.
+- cto: Expert in technical architecture, stack selection, MVP scoping, engineering roadmaps, and build-vs-buy decisions. Delegate technical analysis here.
 
-Available tool categories:
-- Code Interpreter: execute_code, execute_command, write_files, read_files
-- Gateway: Tools provided via the AgentCore Gateway (mcp__gateway__*)
+YOUR WORKFLOW:
+1. When a user describes a business idea, question, or task:
+   a. First, provide a brief strategic overview (2-3 sentences) assessing the opportunity
+   b. Then ALWAYS delegate to ALL THREE specialists using the Task tool -- send each one the full context of the user's request plus domain-specific framing
+   c. After all specialists respond, provide a synthesized executive summary with your top 3-5 actionable recommendations
 
-Your response should:
-1. Show the results
-2. Provide a brief explanation
-""",
+2. IMPORTANT DELEGATION RULES:
+   - Always delegate to ALL THREE specialists for any business idea or strategy question
+   - Include the full user request in each Task prompt so specialists have complete context
+   - Frame the prompt for each specialist's domain (e.g., tell the CFO to focus on financials)
+   - You may delegate to a single specialist only if the user explicitly asks about one domain
+
+3. For follow-up questions:
+   - If the user asks about a specific domain, delegate to the relevant specialist(s)
+   - If the user refines their idea, delegate to all three again with the updated context
+
+CODE INTERPRETER SESSION:
+If you need to run calculations or data analysis, use mcp__codeint__execute_code.
+For the first call, pass an empty string "" for code_int_session_id. Use the returned session ID for subsequent calls. NEVER fabricate session IDs.
+
+Your tone should be confident, strategic, and executive-level. Think like a seasoned startup advisor who has seen hundreds of ventures.""",
         )
 
     async def _process_messages(options: ClaudeAgentOptions):
-        """Run the agent and yield response events."""
+        """Run the agent and yield response events, including subagent attribution."""
+        # Track Task tool invocations to attribute subagent results
+        current_task_agent = None
+        current_task_tool_id = None
+
         async with ClaudeSDKClient(options=options) as client:
             await client.query(prompt)
             async for msg in client.receive_response():
@@ -149,6 +160,19 @@ Your response should:
                     for block in msg.content:
                         if isinstance(block, ToolUseBlock):
                             logger.info("TOOL USE: %s", block.name)
+
+                            # Track Task tool calls for subagent attribution
+                            if block.name == "Task" and isinstance(block.input, dict):
+                                current_task_agent = block.input.get("agent")
+                                current_task_tool_id = f"tool-{block.id}" if hasattr(block, "id") else f"tool-{hash(block.name)}"
+                                # Emit subagent_start event for frontend routing
+                                yield {
+                                    "subagent_start": {
+                                        "agent": current_task_agent,
+                                        "prompt": block.input.get("prompt", ""),
+                                    }
+                                }
+
                             yield {
                                 "current_tool_use": {
                                     "name": block.name,
@@ -164,16 +188,29 @@ Your response should:
                     for block in msg.content:
                         if isinstance(block, ToolResultBlock):
                             if block.content and len(block.content) > 0:
+                                text_content = ""
                                 if isinstance(block.content[0], dict):
                                     text_content = block.content[0].get("text", "")
-                                    try:
-                                        result_data = json.loads(text_content)
-                                        if isinstance(result_data, dict):
-                                            extracted = result_data.get("code_int_session_id", "")
-                                            if extracted:
-                                                code_int_session_id = extracted
-                                    except json.JSONDecodeError:
-                                        pass
+
+                                # Emit subagent_result for Task tool results
+                                if current_task_agent and text_content:
+                                    yield {
+                                        "subagent_result": {
+                                            "agent": current_task_agent,
+                                            "content": text_content,
+                                        }
+                                    }
+                                    current_task_agent = None
+                                    current_task_tool_id = None
+
+                                try:
+                                    result_data = json.loads(text_content)
+                                    if isinstance(result_data, dict):
+                                        extracted = result_data.get("code_int_session_id", "")
+                                        if extracted:
+                                            code_int_session_id = extracted
+                                except json.JSONDecodeError:
+                                    pass
                 elif isinstance(msg, ResultMessage):
                     logger.info("ResultMessage received, session_id=%s", msg.session_id)
                     if msg.session_id:

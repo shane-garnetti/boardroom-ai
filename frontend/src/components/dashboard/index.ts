@@ -1,0 +1,5 @@
+export { default as DashboardInterface } from "./DashboardInterface"
+export { DashboardHeader } from "./DashboardHeader"
+export { AgentPanel } from "./AgentPanel"
+export { AGENTS, SPECIALIST_AGENTS } from "./agentConfig"
+export type { AgentId, AgentConfig } from "./agentConfig"
