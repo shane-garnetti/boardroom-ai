@@ -32,13 +32,19 @@ const initialPanelState = (): Record<AgentId, AgentPanelState> => ({
   "ciso": { status: "idle", content: "", prompt: "" },
 })
 
+interface DocEntry { filename: string; text: string }
+
 export default function DashboardInterface() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [client, setClient] = useState<AgentCoreClient | null>(null)
+  const [documentsApiUrl, setDocumentsApiUrl] = useState<string | null>(null)
   const [sessionId] = useState(() => crypto.randomUUID())
   const [panels, setPanels] = useState<Record<AgentId, AgentPanelState>>(initialPanelState)
+  const [docContext, setDocContext] = useState<Record<AgentId, DocEntry[]>>({
+    "business-advisor": [], "marketing-director": [], "cfo": [], "cto": [], "ciso": [],
+  })
 
   const { isLoading, setIsLoading } = useGlobal()
   const auth = useAuth()
@@ -65,6 +71,7 @@ export default function DashboardInterface() {
         })
 
         setClient(agentClient)
+        setDocumentsApiUrl(config.documentsApiUrl || null)
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown error"
         setError(`Configuration error: ${errorMessage}`)
@@ -325,11 +332,59 @@ export default function DashboardInterface() {
     }
   }
 
+  /**
+   * Upload a file to S3 via presigned URL, then extract its text via Textract.
+   * Returns the extracted text on success, or null on failure.
+   */
+  const handleFileUpload = async (agentId: AgentId, file: File): Promise<string | null> => {
+    const accessToken = auth.user?.access_token
+    if (!accessToken || !documentsApiUrl) return null
+    const baseUrl = documentsApiUrl.endsWith("/") ? documentsApiUrl : documentsApiUrl + "/"
+    try {
+      // 1. Get presigned S3 PUT URL
+      const presignRes = await fetch(`${baseUrl}documents/presign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: accessToken },
+        body: JSON.stringify({ fileName: file.name, fileType: file.type, agentId, sessionId }),
+      })
+      if (!presignRes.ok) throw new Error("Failed to get upload URL")
+      const { uploadUrl, s3Key } = await presignRes.json()
+
+      // 2. PUT file directly to S3
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      })
+      if (!putRes.ok) throw new Error("Upload to S3 failed")
+
+      // 3. Extract text via Textract / direct read
+      const extractRes = await fetch(`${baseUrl}documents/extract`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: accessToken },
+        body: JSON.stringify({ s3Key, fileType: file.type }),
+      })
+      if (!extractRes.ok) throw new Error("Text extraction failed")
+      const { text } = await extractRes.json()
+
+      // Store extracted text as context for this panel
+      setDocContext(prev => ({
+        ...prev,
+        [agentId]: [...(prev[agentId] || []), { filename: file.name, text }],
+      }))
+      return text as string
+    } catch (err) {
+      console.error("File upload failed:", err)
+      return null
+    }
+  }
+
   const handleReset = () => {
     setMessages([])
     setInput("")
     setError(null)
     setPanels(initialPanelState())
+    setDocContext({ "business-advisor": [], "marketing-director": [], "cfo": [], "cto": [], "ciso": [] })
   }
 
   const hasMessages = messages.length > 0
@@ -469,7 +524,9 @@ export default function DashboardInterface() {
                 status={panels[id].status}
                 content={panels[id].content}
                 prompt={panels[id].prompt}
+                uploadedDocs={docContext[id] || []}
                 onFollowUp={answer => sendFollowUp(id, answer)}
+                onFileUpload={file => handleFileUpload(id, file)}
               />
             ))}
           </div>
