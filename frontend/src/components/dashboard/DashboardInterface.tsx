@@ -84,6 +84,36 @@ export default function DashboardInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  /**
+   * Build the full prompt sent to the supervisor, prepending any uploaded
+   * document text so the model has the content as context.
+   */
+  const buildPromptWithDocs = (userMessage: string): string => {
+    const sections: string[] = []
+
+    // Collect docs from all agents that have uploads
+    const allAgentIds = Object.keys(docContext) as AgentId[]
+    for (const agentId of allAgentIds) {
+      const docs = docContext[agentId]
+      if (!docs || docs.length === 0) continue
+      const agentName = AGENTS[agentId].name
+      for (const doc of docs) {
+        sections.push(
+          `[Uploaded document for ${agentName}: "${doc.filename}"]\n${doc.text}\n[End of document]`
+        )
+      }
+    }
+
+    if (sections.length === 0) return userMessage
+
+    return (
+      `The user has uploaded the following document(s) to be used as additional context ` +
+      `by the relevant specialist agents. Reference this content when delegating to each specialist.\n\n` +
+      sections.join("\n\n") +
+      `\n\n---\nUser request: ${userMessage}`
+    )
+  }
+
   const sendMessage = async (userMessage: string) => {
     if (!userMessage.trim() || !client) return
 
@@ -141,7 +171,7 @@ export default function DashboardInterface() {
         })
       }
 
-      await client.invoke(userMessage, sessionId, accessToken, event => {
+      await client.invoke(buildPromptWithDocs(userMessage), sessionId, accessToken, event => {
         switch (event.type) {
           case "text": {
             // Text from supervisor → Business Advisor panel
@@ -302,8 +332,9 @@ export default function DashboardInterface() {
       const accessToken = auth.user?.access_token
       if (!accessToken) throw new Error("Authentication required. Please log in again.")
 
+      const followUpBase = `[Directed follow-up for ${agentName} only] The user provided additional context in response to ${agentName}'s follow-up question: "${answer}". Please re-invoke ONLY the ${agentName} specialist with this new information. Do not re-invoke any other specialists.`
       await client.invoke(
-        `[Directed follow-up for ${agentName} only] The user provided additional context in response to ${agentName}'s follow-up question: "${answer}". Please re-invoke ONLY the ${agentName} specialist with this new information. Do not re-invoke any other specialists.`,
+        buildPromptWithDocs(followUpBase),
         sessionId,
         accessToken,
         event => {
