@@ -38,79 +38,149 @@ User Browser
      │
      ▼
 ┌─────────────────────────────────────────────────────┐
-│  AWS Amplify Hosting  (React / TypeScript / Vite)   │
-│  • Tailwind CSS dark shell + light agent panels     │
-│  • Cognito-authenticated SSE streaming              │
+│  Layer 1 — Frontend Hosting                         │
+│  AWS Amplify  (React / TypeScript / Vite)           │
+│  • Static site served via CloudFront (HTTPS)        │
+│  • Dark shell + light specialist panels             │
+│  • aws-exports.json injected at deploy time         │
 └─────────────────────────┬───────────────────────────┘
-                          │  JWT (Authorization header)
+                          │  Login redirect
                           ▼
 ┌─────────────────────────────────────────────────────┐
+│  Layer 2 — Authentication                           │
 │  Amazon Cognito User Pool                           │
-│  • OAuth2 Authorization Code flow (user login)      │
-│  • JWT issued to frontend                           │
-│  • Cognito Authorizer on API Gateway                │
+│  • OAuth2 Authorization Code flow                   │
+│  • Short-lived JWT issued to browser                │
+│  • Same JWT authorizes AgentCore + API Gateway      │
 └──────┬──────────────────┬──────────────────────────┘
-       │ validates JWT     │ validates JWT
+       │ JWT (Auth header) │ JWT (Auth header)
        ▼                   ▼
-┌──────────────┐   ┌───────────────────────────────┐
-│  API Gateway │   │  AWS Bedrock AgentCore Runtime │
-│  REST API    │   │                               │
-│  /documents  │   │  Supervisor Agent             │
-│    /presign  │   │  (Claude Opus 4.6)            │
-│    /extract  │   │  ┌─────────────────────────┐  │
-│  /feedback   │   │  │  Parallel subagents      │  │
-└──────┬───────┘   │  │  Marketing Director      │  │
-       │           │  │  CFO                     │  │
-       ▼           │  │  CTO        (Claude       │  │
-┌──────────────┐   │  │  CISO        Sonnet 4.6) │  │
-│  AWS Lambda  │   │  └─────────────────────────┘  │
-│  (Python)    │   └───────────────┬───────────────┘
-│  • Presigned │           M2M OAuth2 (Client Creds)
-│    S3 URLs   │                   │
-│  • Textract  │                   ▼
-│    extract   │   ┌───────────────────────────────┐
-└──────┬───────┘   │  AWS Bedrock AgentCore         │
-       │           │  • Memory (cross-session)      │
-       ▼           │  • Identity / Token Vault      │
-┌──────────────┐   └───────────────────────────────┘
-│  Amazon S3   │
-│  Documents   │
-│  Bucket      │
-└──────┬───────┘
-       │
+┌──────────────┐   ┌───────────────────────────────────────┐
+│  Layer 4     │   │  Layer 3 — Agent Runtime (Core)        │
+│  API Gateway │   │  AWS Bedrock AgentCore Runtime         │
+│  REST API    │   │                                        │
+│  /feedback   │   │  Supervisor Agent (Claude Opus 4.6)    │
+│  /documents  │   │  ┌──────────────────────────────────┐  │
+│    /presign  │   │  │  Parallel Subagents               │  │
+│    /extract  │   │  │  • Marketing Director  (MD)       │  │
+└──────┬───────┘   │  │  • Chief Financial Officer (CFO)  │  │
+       │           │  │  • Chief Technology Officer (CTO)  │  │
+       ▼           │  │  • CISO          (Claude Sonnet)  │  │
+┌──────────────┐   │  └──────────────────────────────────┘  │
+│  AWS Lambda  │   └───────────────┬───────────────────────┘
+│  (Python     │           M2M OAuth2 (Client Credentials)
+│   3.13 ARM)  │                   │
+│  • Presigned │                   ▼
+│    S3 URLs   │   ┌───────────────────────────────────────┐
+│  • Textract  │   │  AWS Bedrock AgentCore Services        │
+│    extract   │   │  • Memory  — cross-session context     │
+└──────┬───────┘   │  • Identity — M2M Token Vault          │
+       │           └───────────────────────────────────────┘
        ▼
-┌──────────────┐
-│  Amazon      │
-│  Textract    │
-│  • PDF/PNG   │
-│    text      │
-│    extract   │
-└──────────────┘
+┌──────────────────────────────────────────────────────┐
+│  Layer 5 — Storage                                   │
+│  Amazon S3 (Documents Bucket)                        │
+│  • Browser PUTs directly via presigned URL           │
+│  • Scoped per agent + session                        │
+└──────────────────────┬───────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────┐
+│  Amazon Textract                                     │
+│  • Extracts text from PDFs / PNGs                    │
+│  • Output passed to specialist agent as context      │
+└──────────────────────────────────────────────────────┘
+
+Layer 6 — Infrastructure & Ops
+  AWS CDK (TypeScript) → CloudFormation nested stacks
+  AWS Systems Manager (SSM) — runtime config params
+  Amazon CloudWatch — agent + Lambda log groups
 ```
 
-### How the AWS Services Work Together
+---
 
-1. **AWS Amplify** hosts the React frontend as a static site. The deploy script packages the built app and pushes it to an S3 staging bucket; Amplify serves it via CloudFront with a managed HTTPS domain.
+### Layer-by-Layer Breakdown
 
-2. **Amazon Cognito** handles user authentication via an OAuth2 Authorization Code flow. After login, the frontend holds a short-lived JWT access token that is passed in the `Authorization` header on every request.
+#### Layer 1 — Frontend Hosting: AWS Amplify
+- Hosts the React/TypeScript/Vite app as a static site via CloudFront with a managed HTTPS domain
+- The deploy script builds the app, injects a runtime `aws-exports.json` (ARNs, Cognito pool IDs, API URL), packages it, and pushes to an S3 staging bucket — Amplify picks it up and deploys automatically
+- No server-side rendering — every request is handled client-side; all auth and data flows go directly to AWS services
 
-3. **AWS Bedrock AgentCore Runtime** is the core service. The frontend calls the Runtime's invoke endpoint with the user's JWT (validated by Cognito). The Runtime runs the supervisor agent (Claude Opus 4.6) inside a Docker container on AgentCore managed infrastructure, then streams SSE events back to the browser.
+#### Layer 2 — Authentication: Amazon Cognito
+- Users authenticate via the Cognito Hosted UI using the **OAuth2 Authorization Code** flow
+- After login, the browser holds a short-lived **JWT access token**
+- The JWT is passed as the `Authorization` header on **every** downstream request — both to AgentCore Runtime and API Gateway
+- The same Cognito User Pool acts as authorizer for both services, so there is one identity plane for the whole app
+- Users can be added directly through the AWS Console (Cognito → User Pools → Create user) — no code changes required
 
-4. **Multi-agent delegation**: The supervisor uses the Claude Agent SDK `Agent` tool to invoke four parallel specialist subagents (Claude Sonnet 4.6). Each subagent runs independently and streams its result back through the supervisor's SSE stream. The frontend parser identifies `subagent_start` and `subagent_result` events and routes each response to the correct panel.
+#### Layer 3 — Agent Runtime: AWS Bedrock AgentCore (Core)
+This is where all the AI work happens.
 
-5. **AgentCore Memory** provides cross-session context — the Runtime is configured with a Bedrock AgentCore Memory store so agents can recall information from prior conversations.
+- The frontend calls the **AgentCore Runtime invoke endpoint** with the user's message and JWT
+- The Runtime runs the **supervisor agent (Claude Opus 4.6)** inside a managed Docker container
+- The supervisor uses the Claude Agent SDK `Agent` tool to fan out to **four parallel specialist subagents (Claude Sonnet 4.6)** simultaneously:
 
-6. **AgentCore Identity / Token Vault** manages the machine-to-machine (M2M) OAuth2 credential exchange so the Runtime can call downstream AgentCore services (Gateway, Memory) without exposing secrets in application code.
+```
+Supervisor (Claude Opus 4.6)
+├── Marketing Director  (Claude Sonnet 4.6) ─┐
+├── Chief Financial Officer (Sonnet 4.6)     ├─ run in parallel
+├── Chief Technology Officer (Sonnet 4.6)    │
+└── CISO (Sonnet 4.6) ──────────────────────┘
+```
 
-7. **Amazon API Gateway** provides a secondary REST API for document upload and user feedback. Routes are protected by the same Cognito User Pools Authorizer.
+- Each subagent runs independently and streams its result back through the supervisor's **SSE (Server-Sent Events)** stream
+- The frontend SSE parser identifies `subagent_start` and `subagent_result` events and routes each response to the correct specialist panel in real time — no polling, no waiting for one agent to finish before the next starts
 
-8. **AWS Lambda (Python)** handles two document operations: generating pre-signed S3 PUT URLs for direct browser uploads, and extracting text from uploaded documents via Textract.
+**AgentCore Memory** — the Runtime is wired to a Bedrock AgentCore Memory store, giving agents cross-session recall. Agents can reference prior conversations without the user repeating context.
 
-9. **Amazon S3** stores user-uploaded documents (PDFs, PNGs, CSVs, TXT files) under a per-agent/session prefix. Pre-signed URLs let the browser PUT files directly to S3 without routing them through the API.
+**AgentCore Identity / Token Vault** — manages M2M OAuth2 credentials (Client Credentials flow) so the Runtime can call downstream AgentCore services (Memory, Gateway) without any secrets in application code.
 
-10. **Amazon Textract** extracts text from PDF and image uploads so the content can be passed to the relevant specialist agent as additional context.
+#### Layer 4 — Secondary API: API Gateway + Lambda
+A separate REST API handles non-agent operations, protected by the same Cognito authorizer:
 
-11. **AWS CDK (TypeScript)** provisions all infrastructure as code — Amplify app, Cognito User Pool, API Gateway, Lambda functions, S3 bucket, and the AgentCore Runtime — in a single `cdk deploy`.
+| Route | Handler | Purpose |
+|---|---|---|
+| `POST /feedback` | Lambda | User feedback submission |
+| `POST /documents/presign` | Lambda | Generate a pre-signed S3 PUT URL for direct browser upload |
+| `POST /documents/extract` | Lambda | Call Textract on an uploaded file and return extracted text |
+
+**AWS Lambda (Python 3.13, ARM64)** — handles both document routes. Pre-signed URLs let the browser PUT files directly to S3, bypassing API Gateway's payload size limits.
+
+#### Layer 5 — Storage: S3 + Textract
+- **Amazon S3** stores user-uploaded documents (PDFs, PNGs, CSVs, TXT) scoped per agent and session under `documents/{agentId}/{sessionId}/`
+- The browser uploads directly to S3 via a pre-signed PUT URL — files never pass through Lambda
+- **Amazon Textract** extracts text from PDFs and images; the extracted content is passed to the relevant specialist agent as additional context
+
+#### Layer 6 — Infrastructure & Ops
+- **AWS CDK (TypeScript)** defines all infrastructure as code across nested stacks (Amplify, Cognito, Backend). A single `cdk deploy` provisions everything
+- **AWS CloudFormation** executes the CDK-generated templates and manages stack state
+- **AWS Systems Manager (SSM)** stores runtime config values (API URL, bucket name) as parameters, so the deploy script can read stack outputs without hardcoding
+- **Amazon CloudWatch** captures log groups for Lambda functions and the AgentCore Runtime container — used to trace SSE events, subagent routing, and errors
+
+---
+
+### End-to-End Request Flow
+
+```
+1. User types startup idea → React frontend (Amplify)
+2. Frontend sends invoke request to AgentCore Runtime
+     └─ Authorization: Bearer <Cognito JWT>
+3. Cognito validates JWT → Runtime accepted
+4. Supervisor Agent (Claude Opus 4.6) receives message
+5. Supervisor fans out via Agent tool × 4 (parallel)
+     ├─ Marketing Director analyzes go-to-market
+     ├─ CFO analyzes unit economics + fundraising
+     ├─ CTO designs AWS architecture + stack
+     └─ CISO reviews security posture + compliance
+6. Each subagent streams result → supervisor SSE stream
+7. SSE events arrive at browser in real time:
+     subagent_start  → panel enters "Analyzing..." state
+     subagent_result → panel renders specialist response
+     text            → Business Advisor panel updates
+8. Supervisor synthesizes cross-functional summary
+9. Each specialist may append one FOLLOW_UP: question
+     └─ User answers inline → only that agent re-invokes
+```
 
 ---
 
