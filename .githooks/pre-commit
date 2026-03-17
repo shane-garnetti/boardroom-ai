@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Pre-commit hook: block commits containing hardcoded secrets
+# Checks staged files for AWS account IDs, email addresses, and common secret patterns
+set -euo pipefail
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+FOUND=0
+
+# Files to skip (binary, lock files, gitignored artifacts)
+SKIP_PATTERNS="package-lock.json|yarn.lock|\.png|\.jpg|\.jpeg|\.gif|\.ico|\.woff|\.ttf|\.eot|\.map"
+
+# Get list of staged files (excluding deleted)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -vE "$SKIP_PATTERNS" || true)
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+flag_match() {
+  local label="$1"
+  local file="$2"
+  local pattern="$3"
+  local match
+  match=$(git diff --cached -- "$file" | grep "^+" | grep -v "^+++" | grep -oE "$pattern" | head -1 || true)
+  if [ -n "$match" ]; then
+    echo -e "${RED}BLOCKED${NC} ${YELLOW}${label}${NC} detected in ${file}: '${match}'"
+    FOUND=1
+  fi
+}
+
+for FILE in $STAGED; do
+  # AWS Account IDs: 12-digit standalone numbers (not part of longer sequences)
+  flag_match "AWS Account ID" "$FILE" '\b[0-9]{12}\b'
+
+  # Email addresses (basic pattern — catches real emails, not placeholders like example.com)
+  flag_match "Email address" "$FILE" '\b[A-Za-z0-9._%+-]+@(?!example\.com)[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+
+  # AWS Secret Access Keys
+  flag_match "AWS Secret Key" "$FILE" '(?i)(aws_secret_access_key|secret_access_key)\s*[=:]\s*[A-Za-z0-9/+]{40}'
+
+  # AWS Access Key IDs
+  flag_match "AWS Access Key ID" "$FILE" '\b(AKIA|ASIA|AROA|AIDA)[A-Z0-9]{16}\b'
+
+  # Generic password assignments
+  flag_match "Hardcoded password" "$FILE" '(?i)(password|passwd|pwd)\s*[=:]\s*["\x27][^"\x27]{4,}["\x27]'
+
+  # Private key headers
+  flag_match "Private key" "$FILE" 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY'
+done
+
+if [ "$FOUND" -eq 1 ]; then
+  echo ""
+  echo -e "${RED}Commit blocked.${NC} Remove the sensitive values above before committing."
+  echo "  • Use placeholder values like 'your-email@example.com' or 'YOUR_ACCOUNT_ID'"
+  echo "  • Add secrets to .env (gitignored) instead of source files"
+  echo "  • To bypass in an emergency: git commit --no-verify (use with caution)"
+  exit 1
+fi
+
+exit 0

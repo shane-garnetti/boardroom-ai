@@ -224,7 +224,12 @@ A separate REST API handles non-agent operations, protected by the same Cognito 
 # 1. Clone and configure
 git clone <repo>
 cd fullstack-solution-template-for-agentcore
+
+# Activate secret-scanning pre-commit hook (blocks accidental credential commits)
+bash scripts/setup-hooks.sh
+
 # Edit infra-cdk/config.yaml — set stack_name_base and admin_user_email
+# Create .env to pin your AWS profile and region (gitignored — never committed)
 
 # 2. Deploy infrastructure
 cd infra-cdk
@@ -243,6 +248,8 @@ The deploy script auto-loads `.env` from the project root. Create a `.env` file 
 AWS_PROFILE=<your-profile>
 AWS_DEFAULT_REGION=us-east-1
 ```
+
+> **Never commit** real email addresses, AWS account IDs, or credentials to source files. Use `.env` (gitignored) for account-specific values. The pre-commit hook will block any commit containing these patterns.
 
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full deployment guide.
 
