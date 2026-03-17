@@ -2,7 +2,7 @@ stack_name_base: my-boardroom-ai
 
 # Optional: Set to automatically create an admin user and email credentials
 # If not provided, you'll need to manually create users via AWS Console
-admin_user_email: REDACTED@example.com
+admin_user_email: your-email@example.com
 
 backend:
   pattern: claude-agent-sdk-multi-agent # Available patterns: strands-single-agent, langgraph-single-agent, claude-agent-sdk

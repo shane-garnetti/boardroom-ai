@@ -1,186 +1,306 @@
-# Fullstack AgentCore Solution Template (FAST)
+# Startup Command Center
+### Powered by AWS Bedrock AgentCore
 
-_Author's note: for the official name for this solution is the "Fullstack Solution Template for Agentcore" but it is referred to throughout this code base as FAST for convenience._
+The **Startup Command Center** is a full-stack multi-agent AI demo built on [AWS Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/) using the [Claude Agent SDK](https://docs.anthropic.com/en/docs/claude-code/sdk). Submit any startup idea and instantly receive parallel analysis from a coordinated team of four AI specialists — all running simultaneously on AWS, streamed live to a React dashboard.
 
-The Fullstack AgentCore Solution Template (FAST) is a starter project repository that enables users (delivery scientists and engineers) to quickly deploy a secured, web-accessible React frontend connected to an AgentCore backend. Its purpose is to accelerate building full stack applications on AgentCore from weeks to days by handling the undifferentiated heavy lifting of infrastructure setup and to enable vibe-coding style development on top. The only central dependency of FAST is AgentCore. It is agnostic to agent SDK (Strands, LangGraph, etc) and to coding assistant platforms (Q, Kiro, Cline, Claude Code, etc).
+---
 
-FAST is designed with security and vibe-codability as primary tenets. Best practices and knowledge from experts are codified in _documentation_ in this repository rather than in _code_. By including this documentation in an AI coding assistant's context, or by instructing the AI coding assistant to leverage best practices and code snippets found in the documentation, delivery scientists and developers can quickly vibe-build AgentCore applications for any use case. AI coding assistants can be used to fully customize the frontend and the infrastructure, enabling scientists to focus the areas where their knowledge is most impactful: the actual prompt engineering and GenAI implementation details.
+## Screenshots
 
-With FAST as a starting point and development framework, delivery scientists and engineers will accelerate their development process and deliver production quality AgentCore code following architecture and security best practices without having to learn any frontend or infrastructure code.
+### Welcome Screen
+![Welcome Screen](docs/screenshots/welcome-screen.png)
 
-## FAST Baseline System
+### Dashboard — Live Multi-Agent Analysis
+![Dashboard](docs/screenshots/dashboard.png)
 
-FAST comes deployable out-of-the-box with a fully functioning, full-stack application. This application represents starts as a basic multi-turn chat agent where the backend agent has access to tools. **Do not let this deter you, even if your use case is entirely different! If your application requires AgentCore, customizing FAST to any use case is extremely straightforward. That is the intended use of FAST!**
+---
 
-The application is intentionally kept very, very simple to allow developers to easily build up whatever they want on top of the baseline. The tools shipped out of the box include:
+## What It Does
 
-1. **Gateway Tools** - Lambda-based tools behind AgentCore Gateway with authentication:
-   - Text analysis tool (counts words and letter frequency)
-   
-2. **Code Interpreter** - Direct integration with Amazon Bedrock AgentCore Code Interpreter:
-   - Secure Python code execution in isolated sandbox
-   - Session management with state persistence
-   - Pre-built runtime with common libraries
+You describe a startup idea in plain text. The **Business Advisor** (supervisor agent) receives your message, scopes it, then simultaneously delegates to four specialist subagents. Each specialist streams its response directly into its own panel as it arrives — no waiting for one to finish before the next starts.
 
-Try asking the agent to analyze text or execute Python code to see these tools in action.
+| Agent | Role | Focus |
+|---|---|---|
+| **Business Advisor** | Supervisor | Synthesizes cross-functional strategy, asks clarifying questions |
+| **Marketing Director (MD)** | Specialist | Go-to-market, customer acquisition, branding, competitive positioning |
+| **Chief Financial Officer (CFO)** | Specialist | Unit economics, financial modeling, pricing, fundraising strategy |
+| **Chief Technology Officer (CTO)** | Specialist | AWS architecture, serverless stack, MVP scoping, cloud infrastructure |
+| **Chief Information Security Officer (CISO)** | Specialist | AWS security best practices, IAM, compliance, threat modeling |
 
+Each specialist can ask the user **one targeted follow-up question**, rendered inline in its panel. Answering re-invokes only that specialist — the other panels are untouched.
 
-## FAST User Setup
+---
 
-If you are a delivery scientist or engineer who wants to use FAST to build a full stack application, this is the section for you.
+## AWS Architecture
 
-FAST is designed to be forked and deployed out of the box with a security-approved baseline system working. Your task will be to customize it to create your own full stack application to to do (literally) anything on AgentCore.
+```
+User Browser
+     │
+     ▼
+┌─────────────────────────────────────────────────────┐
+│  Layer 1 — Frontend Hosting                         │
+│  AWS Amplify  (React / TypeScript / Vite)           │
+│  • Static site served via CloudFront (HTTPS)        │
+│  • Dark shell + light specialist panels             │
+│  • aws-exports.json injected at deploy time         │
+└─────────────────────────┬───────────────────────────┘
+                          │  Login redirect
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│  Layer 2 — Authentication                           │
+│  Amazon Cognito User Pool                           │
+│  • OAuth2 Authorization Code flow                   │
+│  • Short-lived JWT issued to browser                │
+│  • Same JWT authorizes AgentCore + API Gateway      │
+└──────┬──────────────────┬──────────────────────────┘
+       │ JWT (Auth header) │ JWT (Auth header)
+       ▼                   ▼
+┌──────────────┐   ┌───────────────────────────────────────┐
+│  Layer 4     │   │  Layer 3 — Agent Runtime (Core)        │
+│  API Gateway │   │  AWS Bedrock AgentCore Runtime         │
+│  REST API    │   │                                        │
+│  /feedback   │   │  Supervisor Agent (Claude Opus 4.6)    │
+│  /documents  │   │  ┌──────────────────────────────────┐  │
+│    /presign  │   │  │  Parallel Subagents               │  │
+│    /extract  │   │  │  • Marketing Director  (MD)       │  │
+└──────┬───────┘   │  │  • Chief Financial Officer (CFO)  │  │
+       │           │  │  • Chief Technology Officer (CTO)  │  │
+       ▼           │  │  • CISO          (Claude Sonnet)  │  │
+┌──────────────┐   │  └──────────────────────────────────┘  │
+│  AWS Lambda  │   └───────────────┬───────────────────────┘
+│  (Python     │           M2M OAuth2 (Client Credentials)
+│   3.13 ARM)  │                   │
+│  • Presigned │                   ▼
+│    S3 URLs   │   ┌───────────────────────────────────────┐
+│  • Textract  │   │  AWS Bedrock AgentCore Services        │
+│    extract   │   │  • Memory  — cross-session context     │
+└──────┬───────┘   │  • Identity — M2M Token Vault          │
+       │           └───────────────────────────────────────┘
+       ▼
+┌──────────────────────────────────────────────────────┐
+│  Layer 5 — Storage                                   │
+│  Amazon S3 (Documents Bucket)                        │
+│  • Browser PUTs directly via presigned URL           │
+│  • Scoped per agent + session                        │
+└──────────────────────┬───────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────┐
+│  Amazon Textract                                     │
+│  • Extracts text from PDFs / PNGs                    │
+│  • Output passed to specialist agent as context      │
+└──────────────────────────────────────────────────────┘
 
-Deploying the full stack out-of-the-box FAST baseline system is only a few cdk commands once you have forked the repo, namely: 
-
-```bash
-cd infra-cdk
-npm install
-cdk bootstrap # Once ever
-cdk deploy
-cd ..
-python scripts/deploy-frontend.py
+Layer 6 — Infrastructure & Ops
+  AWS CDK (TypeScript) → CloudFormation nested stacks
+  AWS Systems Manager (SSM) — runtime config params
+  Amazon CloudWatch — agent + Lambda log groups
 ```
 
-See the [deployment guide](docs/DEPLOYMENT.md) for detailed instructions on how to deploy FAST into an AWS account.
+---
 
-> **Terraform alternative:** FAST also supports Terraform for infrastructure deployment. See [`infra-terraform/README.md`](infra-terraform/README.md) for the Terraform deployment guide. We recommend choosing one infrastructure tool and deleting the other directory (`infra-cdk/` or `infra-terraform/`) from your fork to keep things clean.
+### Layer-by-Layer Breakdown
 
-What comes next? That's up to you, the developer. With your requirements in mind, open up your coding assistant, describe what you'd like to do, and begin. The steering docs in this repository help guide coding assistants with best practices, and encourage them to always refer to the documentation built-in to the repository to make sure you end up building something great.
+#### Layer 1 — Frontend Hosting: AWS Amplify
+- Hosts the React/TypeScript/Vite app as a static site via CloudFront with a managed HTTPS domain
+- The deploy script builds the app, injects a runtime `aws-exports.json` (ARNs, Cognito pool IDs, API URL), packages it, and pushes to an S3 staging bucket — Amplify picks it up and deploys automatically
+- No server-side rendering — every request is handled client-side; all auth and data flows go directly to AWS services
 
-## Architecture
+#### Layer 2 — Authentication: Amazon Cognito
+- Users authenticate via the Cognito Hosted UI using the **OAuth2 Authorization Code** flow
+- After login, the browser holds a short-lived **JWT access token**
+- The JWT is passed as the `Authorization` header on **every** downstream request — both to AgentCore Runtime and API Gateway
+- The same Cognito User Pool acts as authorizer for both services, so there is one identity plane for the whole app
+- Users can be added directly through the AWS Console (Cognito → User Pools → Create user) — no code changes required
 
-![Architecture Diagram](docs/architecture-diagram/FAST-architecture-20260302.png)
+#### Layer 3 — Agent Runtime: AWS Bedrock AgentCore (Core)
+This is where all the AI work happens.
 
-The out-of-the-box architecture is shown above. The diagram illustrates the authentication flows across the stack:
-1. User login to the frontend (Cognito User Pool — Authorization Code grant): The user authenticates with Cognito via the web application hosted on AWS Amplify. Cognito issues a JWT access token for the session.
-2. Frontend to AgentCore Runtime (Cognito User Pool JWT validation): The frontend passes the user's JWT in the Authorization header. The Runtime validates the token against the Cognito User Pool.
-3. AgentCore Runtime to AgentCore Gateway (OAuth2 Client Credentials / M2M): The Runtime authenticates as a service using the OAuth2 Client Credentials grant — independent of the user's identity. AgentCore Identity manages token retrieval via the Token Vault.
-4. Frontend to API Gateway (Cognito User Pool JWT validation): API requests are authenticated using a Cognito User Pools Authorizer with the same user JWT from Flow 1.
+- The frontend calls the **AgentCore Runtime invoke endpoint** with the user's message and JWT
+- The Runtime runs the **supervisor agent (Claude Opus 4.6)** inside a managed Docker container
+- The supervisor uses the Claude Agent SDK `Agent` tool to fan out to **four parallel specialist subagents (Claude Sonnet 4.6)** simultaneously:
 
-### Tech Stack
+```
+Supervisor (Claude Opus 4.6)
+├── Marketing Director  (Claude Sonnet 4.6) ─┐
+├── Chief Financial Officer (Sonnet 4.6)     ├─ run in parallel
+├── Chief Technology Officer (Sonnet 4.6)    │
+└── CISO (Sonnet 4.6) ──────────────────────┘
+```
 
-- **Frontend**: React with TypeScript, Vite, Tailwind CSS, and shadcn components - infinitely flexible and ready for coding assistants
-- **Agent Providers**: Multiple agent providers supported (Strands, LangGraph, etc.) running within AgentCore Runtime
-- **Authentication**: AWS Cognito User Pool with OAuth support for easy swapping out Cognito
-- **Infrastructure**: CDK deployment with Amplify Hosting for frontend and AgentCore backend ([Terraform also supported](infra-terraform/README.md))
+- Each subagent runs independently and streams its result back through the supervisor's **SSE (Server-Sent Events)** stream
+- The frontend SSE parser identifies `subagent_start` and `subagent_result` events and routes each response to the correct specialist panel in real time — no polling, no waiting for one agent to finish before the next starts
+
+**AgentCore Memory** — the Runtime is wired to a Bedrock AgentCore Memory store, giving agents cross-session recall. Agents can reference prior conversations without the user repeating context.
+
+**AgentCore Identity / Token Vault** — manages M2M OAuth2 credentials (Client Credentials flow) so the Runtime can call downstream AgentCore services (Memory, Gateway) without any secrets in application code.
+
+#### Layer 4 — Secondary API: API Gateway + Lambda
+A separate REST API handles non-agent operations, protected by the same Cognito authorizer:
+
+| Route | Handler | Purpose |
+|---|---|---|
+| `POST /feedback` | Lambda | User feedback submission |
+| `POST /documents/presign` | Lambda | Generate a pre-signed S3 PUT URL for direct browser upload |
+| `POST /documents/extract` | Lambda | Call Textract on an uploaded file and return extracted text |
+
+**AWS Lambda (Python 3.13, ARM64)** — handles both document routes. Pre-signed URLs let the browser PUT files directly to S3, bypassing API Gateway's payload size limits.
+
+#### Layer 5 — Storage: S3 + Textract
+- **Amazon S3** stores user-uploaded documents (PDFs, PNGs, CSVs, TXT) scoped per agent and session under `documents/{agentId}/{sessionId}/`
+- The browser uploads directly to S3 via a pre-signed PUT URL — files never pass through Lambda
+- **Amazon Textract** extracts text from PDFs and images; the extracted content is passed to the relevant specialist agent as additional context
+
+#### Layer 6 — Infrastructure & Ops
+- **AWS CDK (TypeScript)** defines all infrastructure as code across nested stacks (Amplify, Cognito, Backend). A single `cdk deploy` provisions everything
+- **AWS CloudFormation** executes the CDK-generated templates and manages stack state
+- **AWS Systems Manager (SSM)** stores runtime config values (API URL, bucket name) as parameters, so the deploy script can read stack outputs without hardcoding
+- **Amazon CloudWatch** captures log groups for Lambda functions and the AgentCore Runtime container — used to trace SSE events, subagent routing, and errors
+
+---
+
+### End-to-End Request Flow
+
+```
+1. User types startup idea → React frontend (Amplify)
+2. Frontend sends invoke request to AgentCore Runtime
+     └─ Authorization: Bearer <Cognito JWT>
+3. Cognito validates JWT → Runtime accepted
+4. Supervisor Agent (Claude Opus 4.6) receives message
+5. Supervisor fans out via Agent tool × 4 (parallel)
+     ├─ Marketing Director analyzes go-to-market
+     ├─ CFO analyzes unit economics + fundraising
+     ├─ CTO designs AWS architecture + stack
+     └─ CISO reviews security posture + compliance
+6. Each subagent streams result → supervisor SSE stream
+7. SSE events arrive at browser in real time:
+     subagent_start  → panel enters "Analyzing..." state
+     subagent_result → panel renders specialist response
+     text            → Business Advisor panel updates
+8. Supervisor synthesizes cross-functional summary
+9. Each specialist may append one FOLLOW_UP: question
+     └─ User answers inline → only that agent re-invokes
+```
+
+---
+
+## AWS Services Used
+
+| Service | Purpose |
+|---|---|
+| **AWS Bedrock AgentCore Runtime** | Hosts and executes the multi-agent system |
+| **AWS Bedrock AgentCore Memory** | Cross-session memory for agents |
+| **AWS Bedrock AgentCore Identity** | M2M credential management (Token Vault) |
+| **Amazon Bedrock** | Underlying model API (Claude Opus 4.6 + Sonnet 4.6) |
+| **AWS Amplify Hosting** | React frontend hosting with CI/CD |
+| **Amazon Cognito** | User authentication (OAuth2, JWT) |
+| **Amazon API Gateway** | REST API for documents + feedback |
+| **AWS Lambda** | Document presign + Textract extract handlers |
+| **Amazon S3** | Document storage + Amplify staging bucket |
+| **Amazon Textract** | PDF/image text extraction |
+| **AWS CDK** | Infrastructure as Code |
+| **AWS CloudFormation** | Underlying stack deployment |
+| **AWS Systems Manager (SSM)** | Runtime config parameter storage |
+| **Amazon CloudWatch** | Agent and Lambda logging |
+
+---
+
+## Key Features
+
+- **Parallel multi-agent streaming** — all 4 specialists run simultaneously, not sequentially
+- **Per-panel follow-up questions** — each specialist can request one clarification; the answer re-invokes only that specialist
+- **Dark shell / light panels** — black app background with white lettering; specialist panels use light mode with color-coded accents
+- **Document upload per panel** — upload PDFs, PNGs, CSVs, or TXT files as additional context for any specialist (stored in S3, extracted via Textract)
+- **AWS-only CTO recommendations** — the CTO persona is an AWS Solutions Architect and names specific services (Lambda, DynamoDB, Cognito, etc.)
+- **CISO specialist** — dedicated security advisor for AWS security best practices, IAM, and compliance, coordinated with the CTO
+
+---
+
+## Quick Deploy
+
+```bash
+# Prerequisites: Node.js, Python 3.8+, AWS CLI, Docker
+
+# 1. Clone and configure
+git clone <repo>
+cd fullstack-solution-template-for-agentcore
+
+# Activate secret-scanning pre-commit hook (blocks accidental credential commits)
+bash scripts/setup-hooks.sh
+
+# Edit infra-cdk/config.yaml — set stack_name_base and admin_user_email
+# Create .env to pin your AWS profile and region (gitignored — never committed)
+
+# 2. Deploy infrastructure
+cd infra-cdk
+npm install
+npx cdk bootstrap   # once per account/region
+npx cdk deploy
+
+# 3. Deploy frontend
+cd ..
+python3 scripts/deploy-frontend.py
+```
+
+The deploy script auto-loads `.env` from the project root. Create a `.env` file to pin your account/region:
+
+```
+AWS_PROFILE=<your-profile>
+AWS_DEFAULT_REGION=us-east-1
+```
+
+> **Never commit** real email addresses, AWS account IDs, or credentials to source files. Use `.env` (gitignored) for account-specific values. The pre-commit hook will block any commit containing these patterns.
+
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full deployment guide.
+
+---
 
 ## Project Structure
 
 ```
-fullstack-agentcore-solution-template/
-├── .amazonq/               # Amazon Q assistant rules
-├── .github/                # GitHub Actions workflows
-│   └── workflows/
-├── docker/                 # Docker development environment
-│   ├── docker-compose.yml  # Local development stack
-│   └── Dockerfile.frontend.dev # Frontend development container
-├── frontend/               # React frontend application
-│   ├── src/
-│   │   ├── app/            # Application pages
-│   │   ├── components/     # React components (shadcn/ui)
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── lib/            # Utility libraries
-│   │   │   └── agentcore-client/ # AgentCore streaming client
-│   │   ├── routes/         # React Router routes
-│   │   ├── services/       # API service layers
-│   │   ├── styles/         # Global styles
-│   │   ├── test/           # Frontend tests
-│   │   └── types/          # TypeScript type definitions
-│   ├── public/             # Static assets
-│   ├── components.json     # shadcn/ui configuration
-│   ├── vite.config.ts      # Vite configuration
-│   └── package.json
-├── infra-cdk/              # CDK infrastructure code
-│   ├── lib/                # CDK stack definitions
-│   │   ├── utils/          # Shared CDK utilities
+fullstack-solution-template-for-agentcore/
+├── patterns/
+│   └── claude-agent-sdk-multi-agent/
+│       ├── agent.py              # Supervisor agent + SSE streaming
+│       └── agents/
+│           └── subagents.py      # MD, CFO, CTO, CISO definitions
+├── frontend/
+│   └── src/components/dashboard/
+│       ├── DashboardInterface.tsx # Main layout + event routing
+│       ├── AgentPanel.tsx         # Per-specialist panel + follow-up UI
+│       ├── DashboardHeader.tsx    # App header with agent status dots
+│       └── agentConfig.ts         # Agent names, colors, labels
+├── infra-cdk/
+│   ├── lib/
+│   │   ├── backend-stack.ts      # AgentCore Runtime + API Gateway + S3
+│   │   ├── cognito-stack.ts      # Cognito User Pool
 │   │   ├── amplify-hosting-stack.ts
-│   │   ├── backend-stack.ts
-│   │   ├── cognito-stack.ts
-│   │   └── fast-main-stack.ts
-│   ├── bin/                # CDK app entry point
-│   ├── lambdas/            # Lambda function code
-│   │   ├── oauth2-provider/ # OAuth2 Credential Provider lifecycle
-│   │   ├── feedback/       # Feedback API handler
-│   │   └── zip-packager/   # Runtime ZIP packager
-│   └── config.yaml         # Deployment configuration
-├── infra-terraform/        # Terraform infrastructure (alternative to CDK)
-│   ├── modules/            # Terraform modules
-│   │   ├── amplify-hosting/ # Amplify Hosting module
-│   │   ├── cognito/        # Cognito User Pool module
-│   │   └── backend/        # Backend resources module
-│   ├── scripts/            # Terraform-specific deployment scripts
-│   ├── lambdas/            # Terraform-specific Lambda code
-│   ├── terraform.tfvars.example # Example variable file
-│   └── README.md           # Terraform deployment guide
-├── patterns/               # Agent pattern implementations
-│   ├── strands-single-agent/ # Basic strands agent pattern
-│   │   ├── basic_agent.py  # Agent implementation
-│   │   ├── strands_code_interpreter.py # Code Interpreter wrapper
-│   │   ├── requirements.txt # Agent dependencies
-│   │   └── Dockerfile      # Container configuration
-│   ├── langgraph-single-agent/ # LangGraph agent pattern
-│   │   ├── langgraph_agent.py # Agent implementation
-│   │   ├── requirements.txt # Agent dependencies
-│   │   └── Dockerfile      # Container configuration
-│   └── utils/              # Shared agent utilities
-│       ├── auth.py         # Authentication helpers
-│       └── ssm.py          # SSM parameter helpers
-├── tools/                  # Reusable tools (framework-agnostic)
-│   └── code_interpreter/   # AgentCore Code Interpreter integration
-│       └── code_interpreter_tools.py # Core implementation
-├── gateway/                # Gateway utilities and tools
-│   └── tools/              # Gateway tool implementations
-│       └── sample_tool/    # Example Gateway tool
-├── scripts/                # Deployment and utility scripts
-│   ├── deploy-frontend.py  # Cross-platform frontend deployment
-│   └── utils.py            # Shared script utilities
-├── test-scripts/           # Testing scripts
-│   ├── test-agent.py       # Agent testing
-│   ├── test-feedback-api.py # Feedback API testing
-│   ├── test-gateway.py     # Gateway testing
-│   └── test-memory.py      # Memory testing
-├── tests/                  # Test suite
-│   ├── unit/               # Unit tests
-│   ├── integration/        # Integration tests
-│   └── conftest.py         # Pytest configuration
-├── docs/                   # Documentation source files
-│   ├── architecture-diagram/ # Architecture diagrams
-│   ├── DEPLOYMENT.md       # Deployment guide
-│   ├── LOCAL_DEVELOPMENT.md # Local development guide
-│   ├── AGENT_CONFIGURATION.md # Agent setup guide
-│   ├── MEMORY_INTEGRATION.md # Memory integration guide
-│   ├── GATEWAY.md          # Gateway integration guide
-│   ├── RUNTIME_GATEWAY_AUTH.md # M2M authentication workflow
-│   ├── STREAMING.md        # Streaming implementation guide
-│   ├── TOOL_AC_CODE_INTERPRETER.md # Code Interpreter guide
-│   └── VERSION_BUMP_PLAYBOOK.md # Version management
-├── .mkdocs/                # MkDocs build configuration
-│   ├── mkdocs.yml          # MkDocs configuration
-│   ├── requirements.txt    # Documentation dependencies
-│   └── Makefile            # Build and deployment commands
-├── vibe-context/           # AI coding assistant context and rules
-│   ├── AGENTS.md           # Rules for AI assistants
-│   ├── coding-conventions.md # Code style guidelines
-│   └── development-best-practices.md # Development guidelines
-├── .kiro/                  # Kiro CLI configuration
-├── CHANGELOG.md            # Version history
-├── Makefile                # Project-level build commands
-└── README.md
+│   │   └── fast-main-stack.ts    # Root stack + CDK outputs
+│   └── lambdas/
+│       ├── document-upload/      # Presign + Textract Lambda
+│       └── feedback/             # Feedback API Lambda
+├── scripts/
+│   └── deploy-frontend.py        # Amplify deployment script
+├── docs/
+│   ├── screenshots/              # App screenshots
+│   └── architecture-diagram/     # Architecture diagrams
+└── infra-cdk/config.yaml         # Deployment configuration
 ```
 
-## DeepWiki
-Have a question about how FAST works? Consider asking DeepWiki!
+---
 
+## About FAST
+
+This demo is built on the **Fullstack AgentCore Solution Template (FAST)** — a starter framework for deploying secured, web-accessible React frontends connected to AgentCore backends. FAST handles infrastructure, authentication, and streaming boilerplate so developers can focus on agent design and prompt engineering.
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/awslabs/fullstack-solution-template-for-agentcore)
 
+---
+
 ## Security
 
-Note: this asset represents a proof-of-value for the services included and is not intended as a production-ready solution. You must determine how the AWS Shared Responsibility applies to their specific use case and implement the needed controls to achieve their desired security outcomes. AWS offers a broad set of security tools and configurations to enable our customers.
-
-Ultimately it is your responsibility as the developer of a full stack application to ensure all of its aspects are secure. We provide security best practices in repository documentation and provide a secure baseline but Amazon holds no responsibility for the security of applications built from this tool.
+This asset is a proof-of-value demo and is not intended as a production-ready solution. You are responsible for applying appropriate security controls for your use case per the [AWS Shared Responsibility Model](https://aws.amazon.com/compliance/shared-responsibility-model/).
 
 ## License
 
-This project is licensed under the Apache-2.0 License.
+Apache-2.0

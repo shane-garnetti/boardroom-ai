@@ -33,6 +33,8 @@ export class BackendStack extends cdk.NestedStack {
   public readonly userPoolClientId: string
   public readonly userPoolDomain: cognito.UserPoolDomain
   public feedbackApiUrl: string
+  public documentsApiUrl: string
+  public documentsBucketName: string
   public runtimeArn: string
   public memoryArn: string
   private agentName: cdk.CfnParameter
@@ -91,8 +93,7 @@ export class BackendStack extends cdk.NestedStack {
     // Create Feedback DynamoDB table (example of application data storage)
     const feedbackTable = this.createFeedbackTable(props.config)
 
-    // Create API Gateway Feedback API resources (example of best-practice API Gateway + Lambda
-    // pattern)
+    // Create API Gateway with Feedback and Documents endpoints
     this.createFeedbackApi(props.config, props.frontendUrl, feedbackTable)
   }
 
@@ -583,6 +584,82 @@ export class BackendStack extends cdk.NestedStack {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
       requestValidator: requestValidator,
+    })
+
+    // ─── Documents S3 bucket ─────────────────────────────────────────────────
+    const documentsBucket = new s3.Bucket(this, "DocumentsBucket", {
+      bucketName: `${config.stack_name_base}-documents`,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      versioned: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      enforceSSL: true,
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
+          allowedOrigins: [frontendUrl, "http://localhost:3000"],
+          allowedHeaders: ["*"],
+          maxAge: 3000,
+        },
+      ],
+    })
+    this.documentsBucketName = documentsBucket.bucketName
+
+    // ─── Document upload Lambda ───────────────────────────────────────────────
+    const documentLambda = new lambda.Function(this, "DocumentLambda", {
+      functionName: `${config.stack_name_base}-documents`,
+      runtime: lambda.Runtime.PYTHON_3_13,
+      architecture: lambda.Architecture.ARM_64,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambdas", "document-upload")),
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        BUCKET_NAME: documentsBucket.bucketName,
+        CORS_ALLOWED_ORIGINS: `${frontendUrl},http://localhost:3000`,
+      },
+      logGroup: new logs.LogGroup(this, "DocumentLambdaLogGroup", {
+        logGroupName: `/aws/lambda/${config.stack_name_base}-documents`,
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
+    })
+
+    // Grant S3 permissions
+    documentsBucket.grantPut(documentLambda)
+    documentsBucket.grantRead(documentLambda)
+
+    // Grant Textract permissions for PDF and image extraction
+    documentLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["textract:DetectDocumentText", "textract:AnalyzeDocument"],
+        resources: ["*"],
+      })
+    )
+
+    // ─── Documents API routes ─────────────────────────────────────────────────
+    // Note: CORS OPTIONS is handled by the API-level defaultCorsPreflightOptions — no need to call addCorsPreflight here.
+    const documentsResource = api.root.addResource("documents")
+
+    const presignResource = documentsResource.addResource("presign")
+    presignResource.addMethod(
+      "POST",
+      new apigateway.LambdaIntegration(documentLambda),
+      { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO }
+    )
+
+    const extractResource = documentsResource.addResource("extract")
+    extractResource.addMethod(
+      "POST",
+      new apigateway.LambdaIntegration(documentLambda),
+      { authorizer, authorizationType: apigateway.AuthorizationType.COGNITO }
+    )
+
+    this.documentsApiUrl = api.url
+
+    // Store documents bucket name in SSM for reference
+    new ssm.StringParameter(this, "DocumentsBucketParam", {
+      parameterName: `/${config.stack_name_base}/documents-bucket`,
+      stringValue: documentsBucket.bucketName,
+      description: "S3 bucket for agent document uploads",
     })
 
     // Store the API URL for access from main stack

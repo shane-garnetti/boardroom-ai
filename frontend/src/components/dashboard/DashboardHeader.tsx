@@ -43,30 +43,30 @@ export function DashboardHeader({ onReset, canReset, agentStatuses }: DashboardH
   const { isAuthenticated, signOut } = useAuth()
 
   return (
-    <header className="flex items-center justify-between px-6 py-3 border-b bg-white">
+    <header className="flex items-center justify-between px-6 py-3 border-b border-zinc-800 bg-black">
       <div className="flex items-center gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Startup Command Center</h1>
-          <p className="text-xs text-gray-500">AI-Powered Advisory Team</p>
+          <h1 className="text-xl font-bold text-white">Startup Command Center</h1>
+          <p className="text-xs text-gray-400">Powered by AWS Bedrock AgentCore.</p>
         </div>
-        <div className="hidden md:flex items-center gap-3 ml-4 pl-4 border-l">
+        <div className="hidden md:flex items-center gap-3 ml-4 pl-4 border-l border-zinc-700">
           {SPECIALIST_AGENTS.map(id => (
             <div key={id} className="flex items-center gap-1.5">
               <StatusDot status={agentStatuses[id]} />
-              <span className="text-xs text-gray-600">{AGENTS[id].name}</span>
+              <span className="text-xs text-gray-300">{AGENTS[id].name}</span>
             </div>
           ))}
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Button onClick={onReset} variant="outline" size="sm" className="gap-1.5" disabled={!canReset}>
+        <Button onClick={onReset} variant="outline" size="sm" className="gap-1.5 border-zinc-600 text-gray-300 hover:bg-zinc-800 hover:text-white bg-transparent" disabled={!canReset}>
           <RotateCcw className="h-3.5 w-3.5" />
           Reset
         </Button>
         {isAuthenticated && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm">Logout</Button>
+              <Button variant="outline" size="sm" className="border-zinc-600 text-gray-300 hover:bg-zinc-800 hover:text-white bg-transparent">Logout</Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

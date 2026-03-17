@@ -29,6 +29,7 @@ const initialPanelState = (): Record<AgentId, AgentPanelState> => ({
   "marketing-director": { status: "idle", content: "", prompt: "" },
   "cfo": { status: "idle", content: "", prompt: "" },
   "cto": { status: "idle", content: "", prompt: "" },
+  "ciso": { status: "idle", content: "", prompt: "" },
 })
 
 export default function DashboardInterface() {
@@ -98,6 +99,7 @@ export default function DashboardInterface() {
       "marketing-director": { status: "idle", content: "", prompt: "" },
       "cfo": { status: "idle", content: "", prompt: "" },
       "cto": { status: "idle", content: "", prompt: "" },
+      "ciso": { status: "idle", content: "", prompt: "" },
     }))
 
     // Create placeholder for assistant response
@@ -272,6 +274,57 @@ export default function DashboardInterface() {
     sendMessage(input)
   }
 
+  /**
+   * Re-invoke ONLY the target specialist with follow-up context.
+   * Preserves all other panels; only updates the target agentId panel.
+   */
+  const sendFollowUp = async (agentId: AgentId, answer: string) => {
+    if (!client || isLoading) return
+    setError(null)
+    setIsLoading(true)
+
+    const agentName = AGENTS[agentId].name
+
+    // Reset only the target panel to "thinking"
+    setPanels(prev => ({
+      ...prev,
+      [agentId]: { status: "thinking", content: "", prompt: "" },
+    }))
+
+    try {
+      const accessToken = auth.user?.access_token
+      if (!accessToken) throw new Error("Authentication required. Please log in again.")
+
+      await client.invoke(
+        `[Directed follow-up for ${agentName} only] The user provided additional context in response to ${agentName}'s follow-up question: "${answer}". Please re-invoke ONLY the ${agentName} specialist with this new information. Do not re-invoke any other specialists.`,
+        sessionId,
+        accessToken,
+        event => {
+          if (event.type === "subagent_result") {
+            const resultId = event.agent as AgentId
+            if (resultId === agentId && AGENTS[resultId]) {
+              setPanels(prev => ({
+                ...prev,
+                [resultId]: { ...prev[resultId], status: "responding", content: event.content },
+              }))
+            }
+          }
+        }
+      )
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error"
+      setError(`Follow-up failed: ${errorMessage}`)
+    } finally {
+      setIsLoading(false)
+      setPanels(prev => {
+        if (prev[agentId].status === "thinking") {
+          return { ...prev, [agentId]: { ...prev[agentId], status: "idle" } }
+        }
+        return prev
+      })
+    }
+  }
+
   const handleReset = () => {
     setMessages([])
     setInput("")
@@ -288,7 +341,7 @@ export default function DashboardInterface() {
   ) as Record<AgentId, StatusType>
 
   return (
-    <div className="flex flex-col h-screen w-full bg-gray-50">
+    <div className="flex flex-col h-screen w-full bg-black">
       <DashboardHeader
         onReset={handleReset}
         canReset={hasMessages}
@@ -296,8 +349,8 @@ export default function DashboardInterface() {
       />
 
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-3 mx-4 mt-2">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="bg-red-900/30 border-l-4 border-red-500 p-3 mx-4 mt-2">
+          <p className="text-sm text-red-400">{error}</p>
         </div>
       )}
 
@@ -305,15 +358,15 @@ export default function DashboardInterface() {
         // Welcome state
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">Startup Command Center</h2>
-            <p className="text-gray-500 text-lg mb-1">Describe your business idea and get analysis from our AI advisory team</p>
+            <h2 className="text-3xl font-bold text-white mb-2">Startup Command Center</h2>
+            <p className="text-gray-400 text-lg mb-1">Powered by AWS Bedrock AgentCore.</p>
             <div className="flex justify-center gap-4 mt-4">
               {SPECIALIST_AGENTS.map(id => {
                 const agent = AGENTS[id]
                 return (
                   <div key={id} className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${agent.bgColor} border ${agent.color}`}>
                     <span className={`font-semibold text-xs ${agent.textColor}`}>{agent.iconLabel}</span>
-                    <span className="text-xs text-gray-600">{agent.name}</span>
+                    <span className={`text-xs ${agent.textColor}`}>{agent.name}</span>
                   </div>
                 )
               })}
@@ -326,7 +379,7 @@ export default function DashboardInterface() {
               handleSubmit={handleSubmit}
               isLoading={isLoading}
             />
-            <p className="text-xs text-gray-400 text-center mt-3">
+            <p className="text-xs text-gray-500 text-center mt-3">
               Try: "I want to build an AI-powered tutoring platform for K-12 students"
             </p>
           </div>
@@ -335,7 +388,7 @@ export default function DashboardInterface() {
         // Dashboard layout
         <div className="flex-1 flex min-h-0">
           {/* Left: Business Advisor chat */}
-          <div className={`w-[42%] flex flex-col border-r-2 ${advisorConfig.color} bg-white`}>
+          <div className={`w-[42%] flex flex-col border-r-2 ${advisorConfig.color} bg-zinc-900`}>
             {/* Advisor header */}
             <div className={`flex items-center gap-3 px-4 py-3 ${advisorConfig.bgColor} border-b`}>
               <div className={`flex items-center justify-center w-9 h-9 rounded-full ${advisorConfig.textColor} bg-white font-bold text-sm border`}>
@@ -343,7 +396,7 @@ export default function DashboardInterface() {
               </div>
               <div>
                 <h3 className={`font-semibold text-sm ${advisorConfig.textColor}`}>{advisorConfig.name}</h3>
-                <p className="text-xs text-gray-500">{advisorConfig.title}</p>
+                <p className="text-xs text-gray-400">{advisorConfig.title}</p>
               </div>
             </div>
 
@@ -354,7 +407,7 @@ export default function DashboardInterface() {
                   <div className={`max-w-[85%] rounded-lg px-4 py-2.5 ${
                     msg.role === "user"
                       ? "bg-indigo-600 text-white"
-                      : "bg-gray-100 text-gray-800"
+                      : "bg-zinc-800 text-gray-100"
                   }`}>
                     {msg.role === "assistant" && msg.segments ? (
                       <div className="prose prose-sm max-w-none">
@@ -384,7 +437,7 @@ export default function DashboardInterface() {
               ))}
               {isLoading && !panels["business-advisor"].content && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-lg px-4 py-3">
+                  <div className="bg-zinc-800 rounded-lg px-4 py-3">
                     <div className="flex gap-1">
                       <div className="h-2 w-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "0ms" }} />
                       <div className="h-2 w-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -397,7 +450,7 @@ export default function DashboardInterface() {
             </div>
 
             {/* Input */}
-            <div className="flex-none border-t px-3 py-2">
+            <div className="flex-none border-t border-zinc-700 px-3 py-2">
               <ChatInput
                 input={input}
                 setInput={setInput}
@@ -408,7 +461,7 @@ export default function DashboardInterface() {
           </div>
 
           {/* Right: Specialist panels */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 p-3 min-h-0 overflow-hidden">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 min-h-0 overflow-hidden bg-black">
             {SPECIALIST_AGENTS.map(id => (
               <AgentPanel
                 key={id}
@@ -416,6 +469,7 @@ export default function DashboardInterface() {
                 status={panels[id].status}
                 content={panels[id].content}
                 prompt={panels[id].prompt}
+                onFollowUp={answer => sendFollowUp(id, answer)}
               />
             ))}
           </div>

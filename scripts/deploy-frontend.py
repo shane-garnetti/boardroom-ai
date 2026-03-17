@@ -32,6 +32,24 @@ if sys.version_info < (3, 8):
     print("Error: Python 3.8 or higher is required")
     sys.exit(1)
 
+# Load .env from project root (sets AWS_PROFILE, AWS_DEFAULT_REGION, etc.)
+def _load_dotenv() -> None:
+    env_path = Path(__file__).parent.parent / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        # Only set if not already overridden by the caller's environment
+        if key not in os.environ:
+            os.environ[key] = value
+
+_load_dotenv()
+
 # Constants
 BRANCH_NAME = "main"
 NEXT_BUILD_DIR = "build"
@@ -376,6 +394,7 @@ def generate_aws_exports(
         "agentRuntimeArn": outputs["RuntimeArn"],
         "awsRegion": region,
         "feedbackApiUrl": outputs["FeedbackApiUrl"],
+        "documentsApiUrl": outputs["FeedbackApiUrl"],
         "agentPattern": pattern,
     }
 

@@ -97,6 +97,16 @@ export class AgentCoreRole extends iam.Role {
                 `arn:aws:bedrock:${region}:${accountId}:*`,
               ],
             }),
+            new iam.PolicyStatement({
+              sid: "MarketplaceModelAccess",
+              effect: iam.Effect.ALLOW,
+              actions: [
+                "aws-marketplace:ViewSubscriptions",
+                "aws-marketplace:Subscribe",
+                "aws-marketplace:Unsubscribe",
+              ],
+              resources: ["*"],
+            }),
           ],
         }),
       },

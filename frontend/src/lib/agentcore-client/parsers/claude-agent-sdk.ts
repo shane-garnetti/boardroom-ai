@@ -53,8 +53,9 @@ export const parseClaudeAgentSdkChunk: ChunkParser = (line, callback) => {
     if (json.current_tool_use) {
       const tool = json.current_tool_use
 
-      // Skip emitting tool_use events for Task tool — handled via subagent events
-      if (tool.name === "Task") {
+      // Skip emitting tool_use events for Agent/Task tool — handled via subagent events
+      // claude-code CLI uses "Agent" tool name in some versions, "Task" in others
+      if (tool.name === "Task" || tool.name === "Agent") {
         return
       }
 

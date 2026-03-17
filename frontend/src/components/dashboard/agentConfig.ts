@@ -1,4 +1,4 @@
-export type AgentId = "business-advisor" | "marketing-director" | "cfo" | "cto"
+export type AgentId = "business-advisor" | "marketing-director" | "cfo" | "cto" | "ciso"
 
 export interface AgentConfig {
   id: AgentId
@@ -34,24 +34,34 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
   },
   "cfo": {
     id: "cfo",
-    name: "CFO",
+    name: "Chief Financial Officer",
     title: "Finance & Fundraising",
     description: "Financial modeling, unit economics, pricing, and fundraising strategy",
     color: "border-amber-500",
     bgColor: "bg-amber-50",
     textColor: "text-amber-700",
-    iconLabel: "CF",
+    iconLabel: "CFO",
   },
   "cto": {
     id: "cto",
-    name: "CTO",
-    title: "Technology & Architecture",
-    description: "Tech stack, MVP scope, development roadmap, and infrastructure",
+    name: "Chief Technology Officer",
+    title: "AWS Solutions Architect",
+    description: "AWS stack, serverless architecture, MVP scope, and cloud infrastructure",
     color: "border-sky-500",
     bgColor: "bg-sky-50",
     textColor: "text-sky-700",
-    iconLabel: "CT",
+    iconLabel: "CTO",
+  },
+  "ciso": {
+    id: "ciso",
+    name: "Chief Information Security Officer",
+    title: "Security & Compliance",
+    description: "AWS security best practices, compliance, IAM, threat modeling, and data protection",
+    color: "border-rose-500",
+    bgColor: "bg-rose-50",
+    textColor: "text-rose-700",
+    iconLabel: "CISO",
   },
 }
 
-export const SPECIALIST_AGENTS: AgentId[] = ["marketing-director", "cfo", "cto"]
+export const SPECIALIST_AGENTS: AgentId[] = ["marketing-director", "cfo", "cto", "ciso"]
