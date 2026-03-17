@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Subagent definitions for the Startup Command Center.
+"""Subagent definitions for Board Room AI.
 
 Defines four specialist subagents that the Business Advisor supervisor
 can spawn via the Task tool: Marketing Director, CFO, CTO, and CISO.
@@ -11,7 +11,7 @@ from claude_agent_sdk import AgentDefinition
 
 
 def get_subagent_definitions(mcp_servers: dict) -> dict[str, AgentDefinition]:
-    """Build subagent definitions for the Startup Command Center.
+    """Build subagent definitions for Board Room AI.
 
     Args:
         mcp_servers: Dictionary of MCP server configurations.

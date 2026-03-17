@@ -46,7 +46,7 @@ export function DashboardHeader({ onReset, canReset, agentStatuses }: DashboardH
     <header className="flex items-center justify-between px-6 py-3 border-b border-zinc-800 bg-black">
       <div className="flex items-center gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white">Startup Command Center</h1>
+          <h1 className="text-xl font-bold text-white">Board Room AI</h1>
           <p className="text-xs text-gray-400">Powered by AWS Bedrock AgentCore.</p>
         </div>
         <div className="hidden md:flex items-center gap-3 ml-4 pl-4 border-l border-zinc-700">

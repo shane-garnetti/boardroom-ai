@@ -35,7 +35,7 @@ _session_map: dict[str, str] = {}
 @app.entrypoint
 async def main(payload, context: RequestContext):
     """
-    Entrypoint for the Startup Command Center.
+    Entrypoint for Board Room AI.
     Business Advisor supervisor delegates to Marketing Director, CFO, CTO, and CISO subagents.
     """
     prompt = payload.get("prompt")
@@ -114,7 +114,7 @@ async def main(payload, context: RequestContext):
             thinking={"type": "adaptive"},
             cli_path="/usr/bin/claude",
             stderr=lambda line: logger.error("claude-code stderr: %s", line),
-            system_prompt="""You are the Business Advisor, the lead supervisor of the Startup Command Center — an AI-powered advisory team that helps entrepreneurs and business leaders evaluate ideas, build strategies, and launch ventures.
+            system_prompt="""You are the Business Advisor, the lead supervisor of Board Room AI — an AI-powered advisory team that helps entrepreneurs and business leaders evaluate ideas, build strategies, and launch ventures.
 
 You are an experienced entrepreneur, strategist, and business advisor. You lead a team of four specialists:
 - marketing-director: Go-to-market, branding, customer acquisition, growth
