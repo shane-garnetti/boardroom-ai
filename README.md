@@ -1,7 +1,7 @@
 # Board Room AI
 ### Powered by AWS Bedrock AgentCore
 
-The **Board Room AI** is a full-stack multi-agent AI demo built on [AWS Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/) using the [Claude Agent SDK](https://docs.anthropic.com/en/docs/claude-code/sdk). Submit any startup idea and instantly receive parallel analysis from a coordinated team of four AI specialists — all running simultaneously on AWS, streamed live to a React dashboard.
+The **Board Room AI** is a full-stack multi-agent AI demo built on [AWS Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/) using the [Claude Agent SDK](https://docs.anthropic.com/en/docs/claude-code/sdk). Submit any startup idea and receive parallel analysis from a coordinated board of AI specialists — all running simultaneously on AWS, streamed live to a React dashboard. When the board identifies a domain gap, it dynamically recommends and pulls in a subject matter expert from a bench of 10 specialists.
 
 ---
 
@@ -17,17 +17,40 @@ The **Board Room AI** is a full-stack multi-agent AI demo built on [AWS Bedrock 
 
 ## What It Does
 
-You describe a startup idea in plain text. The **Business Advisor** (supervisor agent) receives your message, scopes it, then simultaneously delegates to four specialist subagents. Each specialist streams its response directly into its own panel as it arrives — no waiting for one to finish before the next starts.
+You describe a startup idea in plain text. The conversation flows through three phases:
+
+**Phase 1 — Scoping:** The **Business Advisor** (supervisor) asks 4–5 targeted questions to understand your stage, market, revenue model, and team.
+
+**Phase 2 — Board Briefing:** Once scoped, the Advisor simultaneously delegates to all four core board members. Each specialist streams its response into its own panel in real time — no waiting for one to finish before the next starts.
+
+**Phase 3 — SME Recommendation:** After the board responds, the Advisor reviews the conversation for domain gaps and proactively recommends a subject matter expert from the SME bench. If you confirm, the SME panel animates into the dashboard and delivers its analysis.
+
+### Core Board
 
 | Agent | Role | Focus |
 |---|---|---|
-| **Business Advisor** | Supervisor | Synthesizes cross-functional strategy, asks clarifying questions |
+| **Business Advisor** | Supervisor | Cross-functional strategy, scoping, SME coordination |
 | **Marketing Director (MD)** | Specialist | Go-to-market, customer acquisition, branding, competitive positioning |
 | **Chief Financial Officer (CFO)** | Specialist | Unit economics, financial modeling, pricing, fundraising strategy |
 | **Chief Technology Officer (CTO)** | Specialist | AWS architecture, serverless stack, MVP scoping, cloud infrastructure |
-| **Chief Information Security Officer (CISO)** | Specialist | AWS security best practices, IAM, compliance, threat modeling |
+| **Chief Information Security Officer (CISO)** | Specialist | AWS security best practices, IAM, cloud compliance, threat modeling |
 
-Each specialist can ask the user **one targeted follow-up question**, rendered inline in its panel. Answering re-invokes only that specialist — the other panels are untouched.
+### SME Bench (dynamically recommended)
+
+| Agent | Trigger Domain |
+|---|---|
+| **Senior Web Developer** | Web/mobile apps, SaaS products, frontend, UX |
+| **M&A Advisor** | Fundraising, investors, valuation, exit, IPO |
+| **IP Attorney** | Patents, trade secrets, licensing, novel technology |
+| **HR & Talent Advisor** | Hiring, equity, co-founders, org structure, culture |
+| **Healthcare Compliance Officer** | HIPAA, PHI, FDA digital health, EHR/EMR, clinical data |
+| **Data Privacy Officer** | GDPR, CCPA, consumer PII, consent management |
+| **Supply Chain & Ops Expert** | Manufacturing, logistics, inventory, hardware fulfillment |
+| **Regulatory Affairs Specialist** | Fintech, pharma, food/beverage, energy, financial services |
+| **International Expansion Advisor** | Global GTM, market entry, localization, cross-border compliance |
+| **ESG & Sustainability Advisor** | ESG frameworks, B-corp, impact investing, sustainability strategy |
+
+Each core specialist can ask the user **one targeted follow-up question**, rendered inline in its panel. Answering re-invokes only that specialist — the other panels are untouched.
 
 ---
 
@@ -126,10 +149,14 @@ Supervisor (Claude Opus 4.6)
 ├── Chief Financial Officer (Sonnet 4.6)     ├─ run in parallel
 ├── Chief Technology Officer (Sonnet 4.6)    │
 └── CISO (Sonnet 4.6) ──────────────────────┘
+         │
+         ▼ (Phase 3 — if domain gap detected)
+SME Agent (Claude Sonnet 4.6) — dynamically selected from bench of 10
 ```
 
 - Each subagent runs independently and streams its result back through the supervisor's **SSE (Server-Sent Events)** stream
 - The frontend SSE parser identifies `subagent_start` and `subagent_result` events and routes each response to the correct specialist panel in real time — no polling, no waiting for one agent to finish before the next starts
+- The supervisor maintains a keyword-based **SME trigger map** — after the board responds, it scans the conversation for domain signals and proactively recommends the most relevant SME. If the user confirms, the SME is invoked and a new panel animates into the dashboard
 
 **AgentCore Memory** — the Runtime is wired to a Bedrock AgentCore Memory store, giving agents cross-session recall. Agents can reference prior conversations without the user repeating context.
 
@@ -162,24 +189,35 @@ A separate REST API handles non-agent operations, protected by the same Cognito 
 ### End-to-End Request Flow
 
 ```
-1. User types startup idea → React frontend (Amplify)
+Phase 1 — Scoping
+1. User describes startup idea → React frontend (Amplify)
 2. Frontend sends invoke request to AgentCore Runtime
      └─ Authorization: Bearer <Cognito JWT>
 3. Cognito validates JWT → Runtime accepted
-4. Supervisor Agent (Claude Opus 4.6) receives message
-5. Supervisor fans out via Agent tool × 4 (parallel)
+4. Supervisor (Claude Opus 4.6) asks 4–5 scoping questions
+
+Phase 2 — Board Briefing
+5. User answers scoping questions
+6. Supervisor fans out via Agent tool × 4 (parallel)
      ├─ Marketing Director analyzes go-to-market
      ├─ CFO analyzes unit economics + fundraising
      ├─ CTO designs AWS architecture + stack
-     └─ CISO reviews security posture + compliance
-6. Each subagent streams result → supervisor SSE stream
-7. SSE events arrive at browser in real time:
+     └─ CISO reviews security posture + cloud compliance
+7. Each subagent streams result → supervisor SSE stream
+8. SSE events arrive at browser in real time:
      subagent_start  → panel enters "Analyzing..." state
      subagent_result → panel renders specialist response
      text            → Business Advisor panel updates
-8. Supervisor synthesizes cross-functional summary
-9. Each specialist may append one FOLLOW_UP: question
+9. Supervisor synthesizes cross-functional summary
+10. Each specialist may append one FOLLOW_UP: question
      └─ User answers inline → only that agent re-invokes
+
+Phase 3 — SME Recommendation (optional)
+11. Supervisor scans conversation for domain gap signals
+12. If a trigger keyword matches → Advisor recommends SME
+     "I'd like to bring in our Healthcare Compliance Officer..."
+13. User confirms → SME agent invoked, new panel animates in
+14. SME delivers focused analysis on their domain
 ```
 
 ---
@@ -207,12 +245,15 @@ A separate REST API handles non-agent operations, protected by the same Cognito 
 
 ## Key Features
 
-- **Parallel multi-agent streaming** — all 4 specialists run simultaneously, not sequentially
+- **Parallel multi-agent streaming** — all 4 board specialists run simultaneously, not sequentially
+- **Dynamic SME bench** — 10 subject matter experts on standby; the Business Advisor proactively recommends the right one based on keyword signals in the conversation
+- **Animated SME panels** — when a SME is added, a new panel animates into the dashboard grid in real time
+- **Phase-based conversation flow** — scoping → board briefing → SME recommendation, guided naturally by the supervisor
 - **Per-panel follow-up questions** — each specialist can request one clarification; the answer re-invokes only that specialist
-- **Dark shell / light panels** — black app background with white lettering; specialist panels use light mode with color-coded accents
+- **Dark shell / light panels** — black app background; specialist panels use light mode with unique color-coded accents per agent
 - **Document upload per panel** — upload PDFs, PNGs, CSVs, or TXT files as additional context for any specialist (stored in S3, extracted via Textract)
 - **AWS-only CTO recommendations** — the CTO persona is an AWS Solutions Architect and names specific services (Lambda, DynamoDB, Cognito, etc.)
-- **CISO specialist** — dedicated security advisor for AWS security best practices, IAM, and compliance, coordinated with the CTO
+- **CISO specialist** — dedicated security advisor for AWS cloud security, IAM, and compliance, coordinated with the CTO
 
 ---
 
@@ -263,7 +304,7 @@ fullstack-solution-template-for-agentcore/
 │   └── claude-agent-sdk-multi-agent/
 │       ├── agent.py              # Supervisor agent + SSE streaming
 │       └── agents/
-│           └── subagents.py      # MD, CFO, CTO, CISO definitions
+│           └── subagents.py      # Core board + 10-agent SME bench definitions
 ├── frontend/
 │   └── src/components/dashboard/
 │       ├── DashboardInterface.tsx # Main layout + event routing
