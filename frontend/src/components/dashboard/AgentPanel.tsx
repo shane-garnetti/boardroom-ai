@@ -69,12 +69,18 @@ function ThinkingAnimation() {
   )
 }
 
-const sendButtonColor: Record<AgentId, string> = {
+const sendButtonColor: Partial<Record<AgentId, string>> = {
   "business-advisor": "bg-indigo-600 hover:bg-indigo-700",
   "marketing-director": "bg-emerald-600 hover:bg-emerald-700",
   "cfo": "bg-amber-600 hover:bg-amber-700",
   "cto": "bg-sky-600 hover:bg-sky-700",
   "ciso": "bg-rose-600 hover:bg-rose-700",
+  "senior-web-developer": "bg-violet-600 hover:bg-violet-700",
+  "ma-advisor": "bg-purple-600 hover:bg-purple-700",
+  "ip-attorney": "bg-slate-600 hover:bg-slate-700",
+  "hr-talent": "bg-teal-600 hover:bg-teal-700",
+  "healthcare-compliance": "bg-cyan-600 hover:bg-cyan-700",
+  "data-privacy": "bg-orange-600 hover:bg-orange-700",
 }
 
 const ACCEPTED_FILE_TYPES = ".pdf,.png,.jpg,.jpeg,.csv,.txt"

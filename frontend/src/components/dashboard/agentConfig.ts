@@ -1,4 +1,15 @@
-export type AgentId = "business-advisor" | "marketing-director" | "cfo" | "cto" | "ciso"
+export type AgentId =
+  | "business-advisor"
+  | "marketing-director"
+  | "cfo"
+  | "cto"
+  | "ciso"
+  | "senior-web-developer"
+  | "ma-advisor"
+  | "ip-attorney"
+  | "hr-talent"
+  | "healthcare-compliance"
+  | "data-privacy"
 
 export interface AgentConfig {
   id: AgentId
@@ -62,6 +73,78 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
     textColor: "text-rose-700",
     iconLabel: "CISO",
   },
+  // SME bench — dynamically added when Business Advisor recommends
+  "senior-web-developer": {
+    id: "senior-web-developer",
+    name: "Senior Web Developer",
+    title: "Full-Stack Engineering Lead",
+    description: "Frontend/backend architecture, tech stack selection, UX patterns, and development velocity",
+    color: "border-violet-500",
+    bgColor: "bg-violet-50",
+    textColor: "text-violet-700",
+    iconLabel: "SWD",
+  },
+  "ma-advisor": {
+    id: "ma-advisor",
+    name: "M&A Advisor",
+    title: "Mergers, Acquisitions & Exit Strategy",
+    description: "Fundraising strategy, valuation, acquisition readiness, investor relations, and exit planning",
+    color: "border-purple-500",
+    bgColor: "bg-purple-50",
+    textColor: "text-purple-700",
+    iconLabel: "M&A",
+  },
+  "ip-attorney": {
+    id: "ip-attorney",
+    name: "IP & Patent Attorney",
+    title: "Intellectual Property Counsel",
+    description: "Patents, trade secrets, IP protection strategy, licensing, and freedom-to-operate analysis",
+    color: "border-slate-500",
+    bgColor: "bg-slate-50",
+    textColor: "text-slate-700",
+    iconLabel: "IP",
+  },
+  "hr-talent": {
+    id: "hr-talent",
+    name: "HR & Talent Architect",
+    title: "People, Culture & Org Design",
+    description: "Team building, equity structure, hiring plan, compensation strategy, and culture design",
+    color: "border-teal-500",
+    bgColor: "bg-teal-50",
+    textColor: "text-teal-700",
+    iconLabel: "HR",
+  },
+  "healthcare-compliance": {
+    id: "healthcare-compliance",
+    name: "Healthcare Compliance Officer",
+    title: "HIPAA, FDA & Clinical Standards",
+    description: "HIPAA compliance, FDA digital health guidance, clinical data handling, and hospital procurement",
+    color: "border-cyan-500",
+    bgColor: "bg-cyan-50",
+    textColor: "text-cyan-700",
+    iconLabel: "HCO",
+  },
+  "data-privacy": {
+    id: "data-privacy",
+    name: "Data Privacy Officer",
+    title: "GDPR, CCPA & Privacy Compliance",
+    description: "Consumer data rights, GDPR/CCPA compliance, PII handling, data retention policies",
+    color: "border-orange-500",
+    bgColor: "bg-orange-50",
+    textColor: "text-orange-700",
+    iconLabel: "DPO",
+  },
 }
 
+// Core board — always present from session start
 export const SPECIALIST_AGENTS: AgentId[] = ["marketing-director", "cfo", "cto", "ciso"]
+
+// SME bench — dynamically invited by the Business Advisor based on context
+export const SME_AGENTS: AgentId[] = [
+  "senior-web-developer",
+  "ma-advisor",
+  "ip-attorney",
+  "hr-talent",
+  "healthcare-compliance",
+  "data-privacy",
+]

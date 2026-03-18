@@ -13,7 +13,7 @@ import type { AgentPattern } from "@/lib/agentcore-client"
 import { useAuth } from "react-oidc-context"
 import { useDefaultTool } from "@/hooks/useToolRenderer"
 import { ToolCallDisplay } from "@/components/chat/ToolCallDisplay"
-import { AGENTS, SPECIALIST_AGENTS } from "./agentConfig"
+import { AGENTS, SPECIALIST_AGENTS, SME_AGENTS } from "./agentConfig"
 import type { AgentId } from "./agentConfig"
 
 type StatusType = "idle" | "thinking" | "responding"
@@ -24,7 +24,7 @@ interface AgentPanelState {
   prompt: string
 }
 
-const initialPanelState = (): Record<AgentId, AgentPanelState> => ({
+const initialPanelState = (): Record<string, AgentPanelState> => ({
   "business-advisor": { status: "idle", content: "", prompt: "" },
   "marketing-director": { status: "idle", content: "", prompt: "" },
   "cfo": { status: "idle", content: "", prompt: "" },
@@ -41,8 +41,9 @@ export default function DashboardInterface() {
   const [client, setClient] = useState<AgentCoreClient | null>(null)
   const [documentsApiUrl, setDocumentsApiUrl] = useState<string | null>(null)
   const [sessionId] = useState(() => crypto.randomUUID())
-  const [panels, setPanels] = useState<Record<AgentId, AgentPanelState>>(initialPanelState)
-  const [docContext, setDocContext] = useState<Record<AgentId, DocEntry[]>>({
+  const [panels, setPanels] = useState<Record<string, AgentPanelState>>(initialPanelState)
+  const [activeSpecialists, setActiveSpecialists] = useState<AgentId[]>([...SPECIALIST_AGENTS])
+  const [docContext, setDocContext] = useState<Record<string, DocEntry[]>>({
     "business-advisor": [], "marketing-director": [], "cfo": [], "cto": [], "ciso": [],
   })
 
@@ -130,14 +131,14 @@ export default function DashboardInterface() {
     setIsLoading(true)
 
     // Reset specialist panels, set advisor to thinking
-    setPanels(prev => ({
-      ...prev,
-      "business-advisor": { status: "thinking", content: "", prompt: "" },
-      "marketing-director": { status: "idle", content: "", prompt: "" },
-      "cfo": { status: "idle", content: "", prompt: "" },
-      "cto": { status: "idle", content: "", prompt: "" },
-      "ciso": { status: "idle", content: "", prompt: "" },
-    }))
+    setPanels(() => {
+      const next: Record<string, AgentPanelState> = { ...initialPanelState() }
+      for (const id of activeSpecialists) {
+        next[id] = { status: "idle", content: "", prompt: "" }
+      }
+      next["business-advisor"] = { status: "thinking", content: "", prompt: "" }
+      return next
+    })
 
     // Create placeholder for assistant response
     const assistantResponse: Message = {
@@ -205,9 +206,14 @@ export default function DashboardInterface() {
           }
 
           case "subagent_start": {
-            // A specialist agent has been delegated to
             const agentId = event.agent as AgentId
             if (AGENTS[agentId]) {
+              // If this is an SME not yet on the board, add them dynamically
+              if (SME_AGENTS.includes(agentId)) {
+                setActiveSpecialists(prev =>
+                  prev.includes(agentId) ? prev : [...prev, agentId]
+                )
+              }
               setPanels(prev => ({
                 ...prev,
                 [agentId]: {
@@ -415,6 +421,7 @@ export default function DashboardInterface() {
     setInput("")
     setError(null)
     setPanels(initialPanelState())
+    setActiveSpecialists([...SPECIALIST_AGENTS])
     setDocContext({ "business-advisor": [], "marketing-director": [], "cfo": [], "cto": [], "ciso": [] })
   }
 
@@ -424,7 +431,7 @@ export default function DashboardInterface() {
   // Build agent statuses for header
   const agentStatuses = Object.fromEntries(
     Object.entries(panels).map(([id, state]) => [id, state.status])
-  ) as Record<AgentId, StatusType>
+  ) as Record<string, StatusType>
 
   return (
     <div className="flex flex-col h-screen w-full bg-black">
@@ -432,6 +439,7 @@ export default function DashboardInterface() {
         onReset={handleReset}
         canReset={hasMessages}
         agentStatuses={agentStatuses}
+        activeSpecialists={activeSpecialists}
       />
 
       {error && (
@@ -447,7 +455,7 @@ export default function DashboardInterface() {
             <h2 className="text-3xl font-bold text-white mb-2">Board Room AI</h2>
             <p className="text-gray-400 text-lg mb-1">Powered by AWS Bedrock AgentCore.</p>
             <div className="flex justify-center gap-4 mt-4">
-              {SPECIALIST_AGENTS.map(id => {
+              {activeSpecialists.map(id => {
                 const agent = AGENTS[id]
                 return (
                   <div key={id} className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${agent.bgColor} border ${agent.color}`}>
@@ -546,15 +554,15 @@ export default function DashboardInterface() {
             </div>
           </div>
 
-          {/* Right: Specialist panels */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 min-h-0 overflow-hidden bg-black">
-            {SPECIALIST_AGENTS.map(id => (
+          {/* Right: Specialist panels (core board + any dynamically invited SMEs) */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 min-h-0 overflow-y-auto bg-black">
+            {activeSpecialists.map(id => (
               <AgentPanel
                 key={id}
                 agentId={id}
-                status={panels[id].status}
-                content={panels[id].content}
-                prompt={panels[id].prompt}
+                status={panels[id]?.status ?? "idle"}
+                content={panels[id]?.content ?? ""}
+                prompt={panels[id]?.prompt ?? ""}
                 uploadedDocs={docContext[id] || []}
                 onFollowUp={answer => sendFollowUp(id, answer)}
                 onFileUpload={file => handleFileUpload(id, file)}

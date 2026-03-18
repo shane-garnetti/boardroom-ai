@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { SPECIALIST_AGENTS, AGENTS } from "./agentConfig"
+import { AGENTS } from "./agentConfig"
 import type { AgentId } from "./agentConfig"
 
 type StatusType = "idle" | "thinking" | "responding"
@@ -20,7 +20,8 @@ type StatusType = "idle" | "thinking" | "responding"
 interface DashboardHeaderProps {
   onReset: () => void
   canReset: boolean
-  agentStatuses: Record<AgentId, StatusType>
+  agentStatuses: Record<string, StatusType>
+  activeSpecialists: AgentId[]
 }
 
 function StatusDot({ status }: { status: StatusType }) {
@@ -39,7 +40,7 @@ function StatusDot({ status }: { status: StatusType }) {
   return <span className="inline-flex rounded-full h-2.5 w-2.5 bg-gray-300" />
 }
 
-export function DashboardHeader({ onReset, canReset, agentStatuses }: DashboardHeaderProps) {
+export function DashboardHeader({ onReset, canReset, agentStatuses, activeSpecialists }: DashboardHeaderProps) {
   const { isAuthenticated, signOut } = useAuth()
 
   return (
@@ -50,9 +51,9 @@ export function DashboardHeader({ onReset, canReset, agentStatuses }: DashboardH
           <p className="text-xs text-gray-400">Powered by AWS Bedrock AgentCore.</p>
         </div>
         <div className="hidden md:flex items-center gap-3 ml-4 pl-4 border-l border-zinc-700">
-          {SPECIALIST_AGENTS.map(id => (
+          {activeSpecialists.map(id => (
             <div key={id} className="flex items-center gap-1.5">
-              <StatusDot status={agentStatuses[id]} />
+              <StatusDot status={agentStatuses[id] ?? "idle"} />
               <span className="text-xs text-gray-300">{AGENTS[id].name}</span>
             </div>
           ))}
