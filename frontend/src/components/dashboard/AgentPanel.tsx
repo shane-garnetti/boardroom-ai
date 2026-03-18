@@ -81,6 +81,10 @@ const sendButtonColor: Partial<Record<AgentId, string>> = {
   "hr-talent": "bg-teal-600 hover:bg-teal-700",
   "healthcare-compliance": "bg-cyan-600 hover:bg-cyan-700",
   "data-privacy": "bg-orange-600 hover:bg-orange-700",
+  "supply-chain": "bg-yellow-600 hover:bg-yellow-700",
+  "regulatory-affairs": "bg-fuchsia-600 hover:bg-fuchsia-700",
+  "international-expansion": "bg-blue-600 hover:bg-blue-700",
+  "esg-advisor": "bg-lime-600 hover:bg-lime-700",
 }
 
 const ACCEPTED_FILE_TYPES = ".pdf,.png,.jpg,.jpeg,.csv,.txt"

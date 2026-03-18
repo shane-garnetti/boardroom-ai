@@ -10,6 +10,10 @@ export type AgentId =
   | "hr-talent"
   | "healthcare-compliance"
   | "data-privacy"
+  | "supply-chain"
+  | "regulatory-affairs"
+  | "international-expansion"
+  | "esg-advisor"
 
 export interface AgentConfig {
   id: AgentId
@@ -134,6 +138,46 @@ export const AGENTS: Record<AgentId, AgentConfig> = {
     textColor: "text-orange-700",
     iconLabel: "DPO",
   },
+  "supply-chain": {
+    id: "supply-chain",
+    name: "Supply Chain & Ops Expert",
+    title: "Operations & Logistics Strategy",
+    description: "Physical product logistics, manufacturing, inventory management, supplier strategy, and ops scaling",
+    color: "border-yellow-500",
+    bgColor: "bg-yellow-50",
+    textColor: "text-yellow-700",
+    iconLabel: "SCO",
+  },
+  "regulatory-affairs": {
+    id: "regulatory-affairs",
+    name: "Regulatory Affairs Specialist",
+    title: "Industry Compliance & Licensing",
+    description: "Fintech (SEC/FINRA), pharma, food/beverage, energy, and other heavily regulated industry compliance",
+    color: "border-fuchsia-500",
+    bgColor: "bg-fuchsia-50",
+    textColor: "text-fuchsia-700",
+    iconLabel: "REG",
+  },
+  "international-expansion": {
+    id: "international-expansion",
+    name: "International Expansion Advisor",
+    title: "Global GTM & Market Entry",
+    description: "Global go-to-market strategy, localization, international entity structure, tax, and cross-border compliance",
+    color: "border-blue-500",
+    bgColor: "bg-blue-50",
+    textColor: "text-blue-700",
+    iconLabel: "IEA",
+  },
+  "esg-advisor": {
+    id: "esg-advisor",
+    name: "ESG & Sustainability Advisor",
+    title: "Impact, ESG & B-Corp Strategy",
+    description: "ESG frameworks, impact investing, carbon footprint, B-corp certification, and sustainability positioning",
+    color: "border-lime-500",
+    bgColor: "bg-lime-50",
+    textColor: "text-lime-700",
+    iconLabel: "ESG",
+  },
 }
 
 // Core board — always present from session start
@@ -147,4 +191,8 @@ export const SME_AGENTS: AgentId[] = [
   "hr-talent",
   "healthcare-compliance",
   "data-privacy",
+  "supply-chain",
+  "regulatory-affairs",
+  "international-expansion",
+  "esg-advisor",
 ]

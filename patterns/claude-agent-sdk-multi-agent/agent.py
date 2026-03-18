@@ -129,6 +129,10 @@ You also have access to a bench of subject matter experts you can bring in when 
 - hr-talent: Team building, equity structure, hiring plan, comp strategy, culture
 - healthcare-compliance: HIPAA, FDA digital health, clinical data, hospital procurement
 - data-privacy: GDPR, CCPA, consumer PII, consent, data retention
+- supply-chain: Manufacturing, logistics, inventory, fulfillment, ops scaling for physical products
+- regulatory-affairs: Sector-specific licensing and compliance (fintech, pharma, food/beverage, energy)
+- international-expansion: Global GTM, market entry, entity structure, localization, cross-border compliance
+- esg-advisor: ESG frameworks, impact investing, B-corp certification, sustainability strategy
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHASE 1 — SCOPING (first message from user)
