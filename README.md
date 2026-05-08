@@ -312,6 +312,8 @@ AWS_DEFAULT_REGION=us-east-1
 
 Once deployed, the CDK output prints your **Amplify URL** and a temporary login password for the `admin_user_email` you configured. Open the URL, sign in, and you're live.
 
+Self-registration is enabled by default — anyone with access to your Amplify URL can create their own account and verify via email. If you want to restrict access to invited users only, set `selfSignUpEnabled: false` in `infra-cdk/lib/cognito-stack.ts` before deploying.
+
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full deployment guide.
 
 ---
