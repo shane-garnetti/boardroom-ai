@@ -259,26 +259,44 @@ Phase 3 — SME Recommendation (optional)
 
 ## Quick Deploy
 
-```bash
-# Prerequisites: Node.js, Python 3.8+, AWS CLI, Docker
+> ⏱ **~15 minutes** to deploy | 💰 **~$5–15/month** at idle (AgentCore Runtime + Amplify + supporting services)
 
+### Prerequisites
+
+Before running `cdk deploy`, confirm the following:
+
+| Requirement | Notes |
+|---|---|
+| **AWS Bedrock AgentCore access** | AgentCore Runtime, Memory, and Identity must be enabled in your AWS account. Request access at [aws.amazon.com/bedrock/agentcore](https://aws.amazon.com/bedrock/agentcore/) if not already enabled. |
+| **Bedrock model access** | Enable **Claude Opus 4** and **Claude Sonnet 4** in the [Bedrock console](https://console.aws.amazon.com/bedrock/home#/modelaccess) → Model access → Modify model access. |
+| **Node.js 18+** | Required for CDK and frontend build |
+| **Python 3.8+** | Required for the frontend deploy script |
+| **AWS CLI v2** | Configured with credentials for your target account |
+| **Docker Desktop (running)** | The backend deploys as a container — Docker must be running during `cdk deploy` |
+
+### Steps
+
+```bash
 # 1. Clone and configure
-git clone <repo>
-cd fullstack-solution-template-for-agentcore
+git clone https://github.com/shane-garnetti/boardroom-ai.git
+cd boardroom-ai
 
 # Activate secret-scanning pre-commit hook (blocks accidental credential commits)
 bash scripts/setup-hooks.sh
 
-# Edit infra-cdk/config.yaml — set stack_name_base and admin_user_email
+# Edit infra-cdk/config.yaml:
+#   stack_name_base: <your-stack-name>   # e.g. my-boardroom-ai
+#   admin_user_email: <your-email>       # auto-creates your first login
+
 # Create .env to pin your AWS profile and region (gitignored — never committed)
 
-# 2. Deploy infrastructure
+# 2. Deploy infrastructure (~10 min)
 cd infra-cdk
 npm install
 npx cdk bootstrap   # once per account/region
 npx cdk deploy
 
-# 3. Deploy frontend
+# 3. Deploy frontend (~2 min)
 cd ..
 python3 scripts/deploy-frontend.py
 ```
@@ -286,11 +304,13 @@ python3 scripts/deploy-frontend.py
 The deploy script auto-loads `.env` from the project root. Create a `.env` file to pin your account/region:
 
 ```
-AWS_PROFILE=<your-profile>
+AWS_PROFILE=<your-sso-profile>
 AWS_DEFAULT_REGION=us-east-1
 ```
 
 > **Never commit** real email addresses, AWS account IDs, or credentials to source files. Use `.env` (gitignored) for account-specific values. The pre-commit hook will block any commit containing these patterns.
+
+Once deployed, the CDK output prints your **Amplify URL** and a temporary login password for the `admin_user_email` you configured. Open the URL, sign in, and you're live.
 
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full deployment guide.
 
